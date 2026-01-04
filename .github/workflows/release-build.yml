@@ -1,0 +1,32 @@
+name: Build and Upload Release Artifacts
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  UV_PYTHON: "3.14"
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Ensure Python 3.14 is available
+        run: uv python install 3.14
+
+      - name: Build distributions
+        run: uv build --sdist --wheel
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
