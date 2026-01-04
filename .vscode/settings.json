@@ -9,11 +9,10 @@
   "python.testing.pytestArgs": [
     "tests"
   ],
-  "ruff.enable": true,
-  "ruff.organizeImports": true,
+  "ruff.interpreter": [
+    "${workspaceFolder}/.venv/bin/python"
+  ],
   "ty.enable": true,
-  "ty.useWorkspaceInterpreter": true,
-  "ty.pythonPath": "${workspaceFolder}/.venv/bin/python",
   "[python]": {
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
@@ -31,8 +30,5 @@
     "editor.insertSpaces": true,
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "vscode.json-language-features"
-  },
-  "ruff.interpreter": [
-    "${workspaceFolder}/.venv/bin/python"
-  ]
+  }
 }
