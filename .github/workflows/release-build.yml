@@ -7,12 +7,18 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and upload (e.g., v0.1.0). Required because gh-release needs a tag."
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 env:
   UV_PYTHON: "3.14"
+  TAG_NAME: ${{ (github.ref_type == 'tag' && github.ref_name) || inputs.tag || '' }}
 
 jobs:
   build-and-upload:
@@ -33,4 +39,6 @@ jobs:
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG_NAME }}
           files: dist/*
+        if: env.TAG_NAME != ''
