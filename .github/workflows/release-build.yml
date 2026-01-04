@@ -3,6 +3,10 @@ name: Build and Upload Release Artifacts
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
