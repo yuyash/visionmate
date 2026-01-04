@@ -40,5 +40,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
-          files: dist/*
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
         if: env.TAG_NAME != ''
