@@ -12,3 +12,4 @@
 - Testing expectations: Preserve the smoke import test; add fast, deterministic pytest cases for new modules. Favor unit-level coverage; avoid heavy I/O in tests unless mocked.
 - UI/streaming plans: Pending implementation—document assumptions in README when adding video/audio/screen capture or Qwen integrations so future agents understand dependencies (e.g., platform-specific capture backends, local vs cloud Qwen routing).
 - Keep instructions updated: when adding new workflows (CLI, web UI, inference loops), append commands and file paths here so agents have a single source of truth.
+- When replying with code changes, always include a short git commit message suggestion at the end of the response.
