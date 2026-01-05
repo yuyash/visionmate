@@ -31,16 +31,17 @@ class TestMSSScreenCapture:
     @patch("visionmate.capture.screen_capture.mss.mss")
     def test_capture_start_stop(self, mock_mss):
         """Test starting and stopping capture."""
-        # Mock MSS
+        # Mock MSS context manager
         mock_sct = MagicMock()
         mock_sct.monitors = [
             {},  # Monitor 0 (all monitors)
             {"left": 0, "top": 0, "width": 1920, "height": 1080},  # Monitor 1
         ]
+        mock_sct.__enter__ = MagicMock(return_value=mock_sct)
+        mock_sct.__exit__ = MagicMock(return_value=False)
         mock_mss.return_value = mock_sct
 
         capture = MSSScreenCapture()
-        capture._sct = mock_sct
 
         # Start capture
         capture.start_capture(fps=30)
@@ -57,7 +58,7 @@ class TestMSSScreenCapture:
     @patch("visionmate.capture.screen_capture.mss.mss")
     def test_frame_buffering(self, mock_mss):
         """Test frame buffer management."""
-        # Mock MSS
+        # Mock MSS context manager
         mock_sct = MagicMock()
         mock_sct.monitors = [
             {},
@@ -73,10 +74,11 @@ class TestMSSScreenCapture:
             return mock_img
 
         mock_sct.grab.return_value = create_mock_img()
+        mock_sct.__enter__ = MagicMock(return_value=mock_sct)
+        mock_sct.__exit__ = MagicMock(return_value=False)
         mock_mss.return_value = mock_sct
 
         capture = MSSScreenCapture()
-        capture._sct = mock_sct
 
         # Start capture
         capture.start_capture(fps=10)
