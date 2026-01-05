@@ -5,7 +5,7 @@ from typing import Callable, Dict, List, Optional
 
 from visionmate.capture.audio import AudioCaptureInterface
 from visionmate.capture.screen import ScreenCaptureInterface
-from visionmate.core.input import InputMode
+from visionmate.core.input import CaptureMethod, InputMode
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +23,19 @@ class SessionManager:
         self,
         screen_capture: ScreenCaptureInterface,
         audio_capture: AudioCaptureInterface,
+        uvc_capture: Optional[ScreenCaptureInterface] = None,
     ):
         """Initialize session manager.
 
         Args:
-            screen_capture: Screen capture interface
+            screen_capture: Screen capture interface (OS-native)
             audio_capture: Audio capture interface
+            uvc_capture: Optional UVC capture interface
         """
-        self._screen_capture = screen_capture
+        self._os_native_capture = screen_capture
+        self._uvc_capture = uvc_capture
         self._audio_capture = audio_capture
+        self._capture_method = CaptureMethod.OS_NATIVE
         self._input_mode = InputMode.VIDEO_AUDIO
         self._is_capturing = False
         self._capture_fps = 30
@@ -51,10 +55,13 @@ class SessionManager:
         self._capture_fps = fps
 
         try:
+            # Get the appropriate screen capture based on method
+            screen_capture = self._get_active_screen_capture()
+
             # Start video capture if mode includes video
             if self._input_mode.has_video:
-                logger.info(f"Starting video capture at {fps} FPS")
-                self._screen_capture.start_capture(fps=fps, window_id=window_id)
+                logger.info(f"Starting video capture at {fps} FPS using {self._capture_method}")
+                screen_capture.start_capture(fps=fps, window_id=window_id)
 
             # Start audio capture if mode includes audio
             if self._input_mode.has_audio:
@@ -77,10 +84,13 @@ class SessionManager:
             return
 
         try:
+            # Get the appropriate screen capture based on method
+            screen_capture = self._get_active_screen_capture()
+
             # Stop video capture
             if self._input_mode.has_video:
                 logger.info("Stopping video capture")
-                self._screen_capture.stop_capture()
+                screen_capture.stop_capture()
 
             # Stop audio capture
             if self._input_mode.has_audio:
@@ -167,9 +177,78 @@ class SessionManager:
 
         # Update FPS if capturing
         if self._is_capturing and self._input_mode.has_video:
-            self._screen_capture.set_fps(fps)
+            screen_capture = self._get_active_screen_capture()
+            screen_capture.set_fps(fps)
 
         logger.info(f"Capture FPS set to {fps}")
+
+    def set_capture_method(self, method: CaptureMethod) -> None:
+        """Set capture method (OS-native or UVC).
+
+        If capture is active, this will restart capture with the new method
+        while preserving session state.
+
+        Args:
+            method: New capture method
+        """
+        if method == self._capture_method:
+            logger.debug(f"Capture method already set to {method}")
+            return
+
+        # Check if requested method is available
+        if method == CaptureMethod.UVC_DEVICE and self._uvc_capture is None:
+            logger.error("UVC capture not available")
+            raise ValueError("UVC capture not available")
+
+        old_method = self._capture_method
+        was_capturing = self._is_capturing
+
+        logger.info(f"Switching capture method from {old_method} to {method}")
+
+        # Stop current capture if active
+        if was_capturing:
+            self.stop_capture()
+
+        # Update method
+        self._capture_method = method
+
+        # Restart capture if it was active
+        if was_capturing:
+            self.start_capture(fps=self._capture_fps)
+
+        self._emit_event("capture_method_changed", method=method)
+        logger.info(f"Capture method changed to {method}")
+
+    def get_capture_method(self) -> CaptureMethod:
+        """Get current capture method.
+
+        Returns:
+            Current capture method
+        """
+        return self._capture_method
+
+    def get_active_screen_capture(self) -> ScreenCaptureInterface:
+        """Get the currently active screen capture interface.
+
+        Returns:
+            Active screen capture interface
+        """
+        return self._get_active_screen_capture()
+
+    def _get_active_screen_capture(self) -> ScreenCaptureInterface:
+        """Get the screen capture interface based on current method.
+
+        Returns:
+            Screen capture interface for current method
+        """
+        if self._capture_method == CaptureMethod.OS_NATIVE:
+            return self._os_native_capture
+        elif self._capture_method == CaptureMethod.UVC_DEVICE:
+            if self._uvc_capture is None:
+                raise ValueError("UVC capture not available")
+            return self._uvc_capture
+        else:
+            raise ValueError(f"Unknown capture method: {self._capture_method}")
 
     def register_callback(self, event: str, callback: Callable) -> None:
         """Register callback for events.
