@@ -30,6 +30,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             portaudio19-dev \
+            pulseaudio \
             libegl1 \
             libxkbcommon-x11-0 \
             libxcb-icccm4 \
@@ -40,7 +41,9 @@ jobs:
             libxcb-xinerama0 \
             libxcb-xfixes0 \
             libxcb-shape0 \
-            libxcb-cursor0
+            libxcb-cursor0 \
+            xvfb \
+            x11-utils
 
       - name: Ensure Python 3.14 is available
         run: uv python install 3.14
@@ -56,9 +59,18 @@ jobs:
 
       - name: Tests with coverage
         run: |
-          # Set up virtual display for Qt tests
-          export QT_QPA_PLATFORM=offscreen
-          uv run pytest --cov=src --cov-report=xml --cov-report=html
+          # Start PulseAudio for virtual audio devices
+          pulseaudio --start --exit-idle-time=-1
+          # Load null sink module for virtual audio device
+          pactl load-module module-null-sink sink_name=virtual_speaker
+          pactl load-module module-null-source source_name=virtual_mic
+          # Start Xvfb for virtual display
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          export DISPLAY=:99
+          # Wait for services to start
+          sleep 3
+          # Run unit tests and integration tests
+          uv run pytest tests/unit tests/integration --cov=src --cov-report=xml --cov-report=html
 
       - name: Upload coverage HTML artifact
         uses: actions/upload-artifact@v4

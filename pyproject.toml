@@ -14,6 +14,7 @@ dependencies = [
     "ty",
     "pytest",
     "pytest-cov",
+    "pytest-qt",
     "pre-commit",
     # Core capture dependencies
     "mss>=10.1.0",
@@ -50,6 +51,9 @@ unresolved-import = "ignore"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/integration"]
 python_files = ["test_*.py", "*_test.py"]
 addopts = ["-ra"]
+markers = [
+    "integration: integration tests that require real hardware (run in CI with Xvfb)",
+]
