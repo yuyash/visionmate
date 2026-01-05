@@ -326,7 +326,7 @@ class MSSScreenCapture(ScreenCaptureInterface):
     def _list_windows_macos(self) -> List[WindowInfo]:
         """List windows on macOS using Quartz."""
         try:
-            from Quartz import (
+            from Quartz import (  # type: ignore[import-not-found]
                 CGWindowListCopyWindowInfo,
                 kCGNullWindowID,
                 kCGWindowListOptionOnScreenOnly,
@@ -387,8 +387,8 @@ class MSSScreenCapture(ScreenCaptureInterface):
     def _list_windows_windows(self) -> List[WindowInfo]:
         """List windows on Windows using win32gui."""
         try:
-            import win32gui
-            import win32process
+            import win32gui  # type: ignore[import-not-found]
+            import win32process  # type: ignore[import-not-found]
 
             # Get current process ID to exclude self
             current_pid = os.getpid()
@@ -471,11 +471,13 @@ class WindowDetector:
         self.confidence_threshold = confidence_threshold
         self._last_confidence = 0.0
 
-    def detect_window_region(self, frame: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+    def detect_window_region(
+        self, frame: Optional[np.ndarray]
+    ) -> Optional[Tuple[int, int, int, int]]:
         """Detect largest rectangular region in frame.
 
         Args:
-            frame: Input frame as numpy array
+            frame: Input frame as numpy array or None
 
         Returns:
             (x, y, width, height) of detected window, or None if not found
