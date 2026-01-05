@@ -13,11 +13,14 @@ from PySide6.QtWidgets import QApplication, QPushButton
 
 from visionmate.capture.audio import SoundDeviceAudioCapture
 from visionmate.capture.screen import MSSScreenCapture
+from visionmate.core.input_mode import InputMode
 from visionmate.core.logging import LoggingConfig
+from visionmate.core.session_manager import SessionManager
 from visionmate.core.version import __version__
 from visionmate.ui import (
     AudioWaveformWidget,
     DeviceControlsWidget,
+    InputModeWidget,
     MainWindow,
     VideoPreviewWidget,
 )
@@ -40,6 +43,13 @@ class VisionMateApp:
         self.audio_capture = SoundDeviceAudioCapture()
         logger.info("Audio capture created")
 
+        # Create session manager
+        self.session_manager = SessionManager(
+            screen_capture=self.screen_capture,
+            audio_capture=self.audio_capture,
+        )
+        logger.info("Session manager created")
+
         # Create main window
         self.main_window = MainWindow()
         logger.info("Main window created")
@@ -53,6 +63,11 @@ class VisionMateApp:
         # Get layouts
         control_layout = self.main_window.get_control_panel_layout()
         preview_layout = self.main_window.get_preview_panel_layout()
+
+        # Create input mode controls
+        self.input_mode_widget = InputModeWidget(initial_mode=self.session_manager.get_input_mode())
+        self.input_mode_widget.input_mode_changed.connect(self._on_input_mode_changed)
+        control_layout.addWidget(self.input_mode_widget)
 
         # Create device controls
         self.device_controls = DeviceControlsWidget(
@@ -82,26 +97,38 @@ class VisionMateApp:
         self.audio_waveform = AudioWaveformWidget(capture=self.audio_capture)
         preview_layout.addWidget(self.audio_waveform)
 
+    def _on_input_mode_changed(self, mode: InputMode) -> None:
+        """Handle input mode change.
+
+        Args:
+            mode: New input mode
+        """
+        logger.info(f"Input mode changed to {mode}")
+        self.session_manager.set_input_mode(mode)
+
     def _start_capture(self) -> None:
         """Start capture and preview."""
         try:
             logger.info("Starting capture...")
 
-            # Disable device controls during capture
+            # Disable controls during capture
+            self.input_mode_widget.set_capture_active(True)
             self.device_controls.set_capture_active(True)
 
-            # Start screen capture
-            self.screen_capture.start_capture(fps=30)
-            logger.info("Screen capture started")
+            # Start capture through session manager
+            self.session_manager.start_capture(fps=30)
+            logger.info("Capture started through session manager")
 
-            # Start audio capture
-            self.audio_capture.start_capture()
-            logger.info("Audio capture started")
+            # Start previews based on input mode
+            current_mode = self.session_manager.get_input_mode()
 
-            # Start previews
-            self.video_preview.start_preview(fps=30)
-            self.audio_waveform.start_preview(fps=30)
-            logger.info("Previews started")
+            if current_mode.has_video:
+                self.video_preview.start_preview(fps=30)
+                logger.info("Video preview started")
+
+            if current_mode.has_audio:
+                self.audio_waveform.start_preview(fps=30)
+                logger.info("Audio waveform started")
 
             # Update button states
             self.start_button.setEnabled(False)
@@ -109,24 +136,26 @@ class VisionMateApp:
 
         except Exception as e:
             logger.error(f"Error starting capture: {e}", exc_info=True)
-            # Re-enable device controls on error
+            # Re-enable controls on error
+            self.input_mode_widget.set_capture_active(False)
             self.device_controls.set_capture_active(False)
 
     def _stop_capture(self) -> None:
         """Stop capture and preview."""
         try:
             logger.info("Stopping capture...")
+
             # Stop previews
             self.video_preview.stop_preview()
             self.audio_waveform.stop_preview()
             logger.info("Previews stopped")
 
-            # Stop captures
-            self.screen_capture.stop_capture()
-            self.audio_capture.stop_capture()
-            logger.info("Captures stopped")
+            # Stop capture through session manager
+            self.session_manager.stop_capture()
+            logger.info("Capture stopped through session manager")
 
-            # Re-enable device controls
+            # Re-enable controls
+            self.input_mode_widget.set_capture_active(False)
             self.device_controls.set_capture_active(False)
 
             # Update button states
