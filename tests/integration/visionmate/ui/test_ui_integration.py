@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 
 from visionmate.capture.audio import SoundDeviceAudioCapture
 from visionmate.capture.screen import MSSScreenCapture
-from visionmate.ui import AudioWaveformWidget, DeviceControlsWidget, VideoPreviewWidget
+from visionmate.ui.widgets import AudioWaveformWidget, DeviceControlsWidget, VideoPreviewWidget
 
 
 @pytest.mark.integration

@@ -55,6 +55,69 @@ class TestMSSScreenCapture:
         capture.stop_capture()
         assert not capture._is_capturing
 
+    def test_fps_control(self):
+        """Test FPS control within valid range."""
+        capture = MSSScreenCapture()
+
+        # Test valid FPS
+        capture.set_fps(15)
+        assert capture.get_fps() == 15
+
+        capture.set_fps(60)
+        assert capture.get_fps() == 60
+
+        # Test FPS clamping
+        capture.set_fps(0)
+        assert capture.get_fps() == 1
+
+        capture.set_fps(100)
+        assert capture.get_fps() == 60
+
+    @patch("visionmate.capture.screen.mss.mss")
+    def test_fps_change_during_capture(self, mock_mss):
+        """Test changing FPS while capture is active."""
+        # Mock MSS context manager
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"left": 0, "top": 0, "width": 100, "height": 100},
+        ]
+
+        # Create mock screenshot
+        def create_mock_img():
+            mock_img = MagicMock()
+            test_array = np.zeros((100, 100, 4), dtype=np.uint8)
+            mock_img.__array__ = lambda *args, **kwargs: test_array
+            return mock_img
+
+        mock_sct.grab.return_value = create_mock_img()
+        mock_sct.__enter__ = MagicMock(return_value=mock_sct)
+        mock_sct.__exit__ = MagicMock(return_value=False)
+        mock_mss.return_value = mock_sct
+
+        capture = MSSScreenCapture()
+
+        # Start capture at 10 FPS
+        capture.start_capture(fps=10)
+        assert capture.get_fps() == 10
+
+        # Wait for some frames
+        time.sleep(0.2)
+
+        # Change FPS during capture
+        capture.set_fps(20)
+        assert capture.get_fps() == 20
+
+        # Wait for more frames at new FPS
+        time.sleep(0.2)
+
+        # Get frame to verify capture still works
+        frame = capture.get_frame()
+        assert frame is not None
+
+        # Stop capture
+        capture.stop_capture()
+
     @patch("visionmate.capture.screen.mss.mss")
     def test_frame_buffering(self, mock_mss):
         """Test frame buffer management."""
@@ -190,6 +253,41 @@ class TestUVCScreenCapture:
 
         capture.set_fps(100)
         assert capture.get_fps() == 60
+
+    @patch("cv2.VideoCapture")
+    def test_fps_change_during_capture(self, mock_video_capture):
+        """Test changing FPS while capture is active."""
+        # Mock VideoCapture
+        mock_cap = MagicMock()
+        mock_cap.isOpened.return_value = True
+        mock_cap.read.return_value = (True, np.zeros((480, 640, 3), dtype=np.uint8))
+        mock_video_capture.return_value = mock_cap
+
+        capture = UVCScreenCapture()
+
+        # Start capture at 10 FPS
+        capture.start_capture(fps=10)
+        assert capture.get_fps() == 10
+
+        # Wait for some frames
+        time.sleep(0.2)
+
+        # Change FPS during capture
+        capture.set_fps(20)
+        assert capture.get_fps() == 20
+
+        # Verify OpenCV property was set
+        mock_cap.set.assert_called_with(cv2.CAP_PROP_FPS, 20)
+
+        # Wait for more frames at new FPS
+        time.sleep(0.2)
+
+        # Get frame to verify capture still works
+        frame = capture.get_frame()
+        assert frame is not None
+
+        # Stop capture
+        capture.stop_capture()
 
     @patch("cv2.VideoCapture")
     def test_list_devices(self, mock_video_capture):
