@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
-from visionmate.capture.screen_capture import (
+from visionmate.capture.screen import (
     MSSScreenCapture,
     ScreenCaptureInterface,
     UVCScreenCapture,
@@ -28,7 +28,7 @@ class TestScreenCaptureInterface:
 class TestMSSScreenCapture:
     """Test MSSScreenCapture implementation."""
 
-    @patch("visionmate.capture.screen_capture.mss.mss")
+    @patch("visionmate.capture.screen.mss.mss")
     def test_capture_start_stop(self, mock_mss):
         """Test starting and stopping capture."""
         # Mock MSS context manager
@@ -55,7 +55,7 @@ class TestMSSScreenCapture:
         capture.stop_capture()
         assert not capture._is_capturing
 
-    @patch("visionmate.capture.screen_capture.mss.mss")
+    @patch("visionmate.capture.screen.mss.mss")
     def test_frame_buffering(self, mock_mss):
         """Test frame buffer management."""
         # Mock MSS context manager

@@ -1,7 +1,7 @@
 """Capture layer for screen and audio input."""
 
-from .audio_capture import AudioCaptureInterface, AudioChunk, SoundDeviceAudioCapture
-from .screen_capture import (
+from .audio import AudioCaptureInterface, AudioChunk, SoundDeviceAudioCapture
+from .screen import (
     MSSScreenCapture,
     ScreenCaptureInterface,
     UVCScreenCapture,

@@ -12,8 +12,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from visionmate.capture.audio_capture import AudioCaptureInterface
-from visionmate.capture.screen_capture import ScreenCaptureInterface
+from visionmate.capture.audio import AudioCaptureInterface
+from visionmate.capture.screen import ScreenCaptureInterface
 
 
 class DeviceControlsWidget(QWidget):

@@ -11,9 +11,9 @@ if sys.platform == "darwin":  # macOS
 
 from PySide6.QtWidgets import QApplication, QPushButton
 
-from visionmate.capture.audio_capture import SoundDeviceAudioCapture
-from visionmate.capture.screen_capture import MSSScreenCapture
-from visionmate.core.logging_config import LoggingConfig
+from visionmate.capture.audio import SoundDeviceAudioCapture
+from visionmate.capture.screen import MSSScreenCapture
+from visionmate.core.logging import LoggingConfig
 from visionmate.core.version import __version__
 from visionmate.ui import (
     AudioWaveformWidget,

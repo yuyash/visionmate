@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QPen
 from PySide6.QtWidgets import QGraphicsView, QVBoxLayout, QWidget
 
-from visionmate.capture.audio_capture import AudioCaptureInterface
+from visionmate.capture.audio import AudioCaptureInterface
 
 
 class AudioWaveformWidget(QWidget):

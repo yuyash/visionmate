@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-from visionmate.capture.screen_capture import ScreenCaptureInterface
+from visionmate.capture.screen import ScreenCaptureInterface
 
 
 class VideoPreviewWidget(QWidget):

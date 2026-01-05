@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import sounddevice as sd
 
-from visionmate.capture.audio_capture import (
+from visionmate.capture.audio import (
     AudioCaptureInterface,
     AudioChunk,
     SoundDeviceAudioCapture,

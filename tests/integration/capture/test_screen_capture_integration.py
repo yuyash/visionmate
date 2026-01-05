@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from visionmate.capture.screen_capture import MSSScreenCapture
+from visionmate.capture.screen import MSSScreenCapture
 
 
 @pytest.mark.integration

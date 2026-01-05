@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from PySide6.QtCore import Qt
 
-from visionmate.capture.audio_capture import SoundDeviceAudioCapture
-from visionmate.capture.screen_capture import MSSScreenCapture
+from visionmate.capture.audio import SoundDeviceAudioCapture
+from visionmate.capture.screen import MSSScreenCapture
 from visionmate.ui import AudioWaveformWidget, DeviceControlsWidget, VideoPreviewWidget
 
 
