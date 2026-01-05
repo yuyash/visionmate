@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/yuyash/visionmate/compare/v0.6.0...v0.7.0) (2026-01-05)
+
+
+### Features
+
+* **capture:** implement capture method switching ([#20](https://github.com/yuyash/visionmate/issues/20)) ([561d5ab](https://github.com/yuyash/visionmate/commit/561d5ab1d1b134b7e8c0091b839b805e2aed9adb))
+
 ## [0.6.0](https://github.com/yuyash/visionmate/compare/v0.5.0...v0.6.0) (2026-01-05)
 
 
