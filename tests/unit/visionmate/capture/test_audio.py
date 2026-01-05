@@ -4,8 +4,9 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import sounddevice as sd
 
-from deskmate.capture.audio_capture import (
+from visionmate.capture.audio import (
     AudioCaptureInterface,
     AudioChunk,
     SoundDeviceAudioCapture,
@@ -223,7 +224,8 @@ class TestSoundDeviceAudioCapture:
 
         # Simulate audio callback
         audio_data = np.random.randn(1024, 1).astype(np.float32)
-        capture._audio_callback(audio_data, 1024, None, None)
+        mock_status = sd.CallbackFlags()
+        capture._audio_callback(audio_data, 1024, None, mock_status)
 
         # Check buffer has data
         assert capture.get_buffer_size() == 1
@@ -240,7 +242,8 @@ class TestSoundDeviceAudioCapture:
 
         # Simulate audio callback
         audio_data = np.random.randn(1024, 1).astype(np.float32)
-        capture._audio_callback(audio_data, 1024, None, None)
+        mock_status = sd.CallbackFlags()
+        capture._audio_callback(audio_data, 1024, None, mock_status)
 
         # Buffer should be empty
         assert capture.get_buffer_size() == 0
@@ -251,9 +254,10 @@ class TestSoundDeviceAudioCapture:
         capture._is_capturing = True
 
         # Add multiple chunks
+        mock_status = sd.CallbackFlags()
         for i in range(10):
             audio_data = np.ones((1024, 1), dtype=np.float32) * i
-            capture._audio_callback(audio_data, 1024, None, None)
+            capture._audio_callback(audio_data, 1024, None, mock_status)
 
         # Buffer should be limited to 5 chunks
         assert capture.get_buffer_size() == 5
@@ -276,9 +280,10 @@ class TestSoundDeviceAudioCapture:
         capture._is_capturing = True
 
         # Add some chunks
+        mock_status = sd.CallbackFlags()
         for _ in range(5):
             audio_data = np.random.randn(1024, 1).astype(np.float32)
-            capture._audio_callback(audio_data, 1024, None, None)
+            capture._audio_callback(audio_data, 1024, None, mock_status)
 
         assert capture.get_buffer_size() == 5
 
@@ -311,13 +316,16 @@ class TestSoundDeviceAudioCapture:
 
         # Add chunk
         audio_data = np.ones((1024, 1), dtype=np.float32)
-        capture._audio_callback(audio_data, 1024, None, None)
+        mock_status = sd.CallbackFlags()
+        capture._audio_callback(audio_data, 1024, None, mock_status)
 
         # Get chunk twice
         chunk1 = capture.get_audio_chunk()
         chunk2 = capture.get_audio_chunk()
 
         # Should be equal but not the same object
+        assert chunk1 is not None
+        assert chunk2 is not None
         assert np.array_equal(chunk1, chunk2)
         assert chunk1 is not chunk2
 

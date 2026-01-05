@@ -1,3 +1,3 @@
-# Deskmate
+# Visionmate
 
-Deskmate is an app that continuously streams UVC video and audio into Qwen3-omni (local or remote), fusing screen captures with spoken context to understand on-screen issues and conversations, then surface answers in real time.
+Visionmate is a multi-modal assistant that continuously observes UVC video or screen capture and audio and streams into VLM (Vision Language Model), fusing vision inputs with spoken context to understand conversations and surface answers in real time.

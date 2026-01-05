@@ -132,7 +132,7 @@ class MSSScreenCapture(ScreenCaptureInterface):
 
     def __init__(self):
         """Initialize MSS screen capture."""
-        self._sct = mss.mss()
+        self._sct = None  # Will be created in capture thread
         self._fps = 30
         self._target_window_id: Optional[int] = None
         self._target_window_info: Optional[WindowInfo] = None
@@ -199,21 +199,21 @@ class MSSScreenCapture(ScreenCaptureInterface):
 
     def list_devices(self) -> List[Dict[str, Any]]:
         """List available capture sources (monitors)."""
-        devices = []
-        for i, monitor in enumerate(
-            self._sct.monitors[1:], start=1
-        ):  # Skip monitor 0 (all monitors)
-            devices.append(
-                {
-                    "id": i,
-                    "name": f"Monitor {i}",
-                    "width": monitor["width"],
-                    "height": monitor["height"],
-                    "left": monitor["left"],
-                    "top": monitor["top"],
-                }
-            )
-        return devices
+        # Create temporary MSS instance for device enumeration
+        with mss.mss() as sct:
+            devices = []
+            for i, monitor in enumerate(sct.monitors[1:], start=1):  # Skip monitor 0
+                devices.append(
+                    {
+                        "id": i,
+                        "name": f"Monitor {i}",
+                        "width": monitor["width"],
+                        "height": monitor["height"],
+                        "left": monitor["left"],
+                        "top": monitor["top"],
+                    }
+                )
+            return devices
 
     def list_windows(self) -> List[WindowInfo]:
         """List all capturable windows (excluding self)."""
@@ -250,33 +250,39 @@ class MSSScreenCapture(ScreenCaptureInterface):
 
     def _capture_loop(self) -> None:
         """Main capture loop running in separate thread."""
-        frame_interval = 1.0 / self._fps
-        next_frame_time = time.time()
+        # Create MSS instance in this thread (thread-local)
+        with mss.mss() as sct:
+            frame_interval = 1.0 / self._fps
+            next_frame_time = time.time()
 
-        while not self._stop_event.is_set():
-            current_time = time.time()
+            while not self._stop_event.is_set():
+                current_time = time.time()
 
-            if current_time >= next_frame_time:
-                # Capture frame
-                frame = self._capture_frame()
+                if current_time >= next_frame_time:
+                    # Capture frame
+                    frame = self._capture_frame(sct)
 
-                if frame is not None:
-                    with self._frame_lock:
-                        self._frame_buffer.append(frame)
+                    if frame is not None:
+                        with self._frame_lock:
+                            self._frame_buffer.append(frame)
 
-                # Calculate next frame time with drift compensation
-                next_frame_time += frame_interval
-                if next_frame_time < current_time:
-                    # If we're behind, reset to current time
-                    next_frame_time = current_time + frame_interval
-            else:
-                # Sleep until next frame time
-                sleep_time = next_frame_time - current_time
-                if sleep_time > 0:
-                    time.sleep(min(sleep_time, 0.001))  # Sleep max 1ms at a time for responsiveness
+                    # Calculate next frame time with drift compensation
+                    next_frame_time += frame_interval
+                    if next_frame_time < current_time:
+                        # If we're behind, reset to current time
+                        next_frame_time = current_time + frame_interval
+                else:
+                    # Sleep until next frame time
+                    sleep_time = next_frame_time - current_time
+                    if sleep_time > 0:
+                        time.sleep(min(sleep_time, 0.001))  # Sleep max 1ms at a time
 
-    def _capture_frame(self) -> Optional[np.ndarray]:
-        """Capture a single frame."""
+    def _capture_frame(self, sct) -> Optional[np.ndarray]:
+        """Capture a single frame.
+
+        Args:
+            sct: MSS instance (must be from same thread)
+        """
         try:
             # Determine capture region
             if self._target_window_id is not None and self._target_window_info is not None:
@@ -286,7 +292,7 @@ class MSSScreenCapture(ScreenCaptureInterface):
                 self._capture_region = (x, y, w, h)
             else:
                 # Capture entire primary monitor
-                monitor = self._sct.monitors[1]  # Primary monitor
+                monitor = sct.monitors[1]  # Primary monitor
                 self._capture_region = (
                     monitor["left"],
                     monitor["top"],
@@ -295,7 +301,7 @@ class MSSScreenCapture(ScreenCaptureInterface):
                 )
 
             # Capture screenshot
-            sct_img = self._sct.grab(monitor)
+            sct_img = sct.grab(monitor)
 
             # Convert to numpy array (BGR format for OpenCV compatibility)
             frame = np.array(sct_img)
