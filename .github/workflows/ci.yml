@@ -13,7 +13,52 @@ env:
   UV_PYTHON: "3.14"
 
 jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Ensure Python 3.14 is available
+        run: uv python install 3.14
+
+      - name: Sync dependencies
+        run: uv sync --python 3.14 --all-extras --dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+  type-check:
+    name: type-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Ensure Python 3.14 is available
+        run: uv python install 3.14
+
+      - name: Sync dependencies
+        run: uv sync --python 3.14 --all-extras --dev
+
+      - name: Type check (ty)
+        run: uv run ty check .
+
   tests:
+    name: tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -50,12 +95,6 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --python 3.14 --all-extras --dev
-
-      - name: Lint (ruff)
-        run: uv run ruff check .
-
-      - name: Type check (ty)
-        run: uv run ty check .
 
       - name: Tests with coverage
         run: |

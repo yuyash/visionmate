@@ -13,15 +13,18 @@ from PySide6.QtWidgets import QApplication, QPushButton
 
 from visionmate.capture.audio import SoundDeviceAudioCapture
 from visionmate.capture.screen import MSSScreenCapture
-from visionmate.core.input_mode import InputMode
+from visionmate.core.input import InputMode
 from visionmate.core.logging import LoggingConfig
-from visionmate.core.session_manager import SessionManager
+from visionmate.core.session import SessionManager
 from visionmate.core.version import __version__
 from visionmate.ui import (
+    MainWindow,
+)
+from visionmate.ui.widgets import (
     AudioWaveformWidget,
     DeviceControlsWidget,
+    FPSControlWidget,
     InputModeWidget,
-    MainWindow,
     VideoPreviewWidget,
 )
 
@@ -76,6 +79,11 @@ class VisionMateApp:
         )
         control_layout.addWidget(self.device_controls)
 
+        # Create FPS control
+        self.fps_control = FPSControlWidget(initial_fps=self.session_manager.get_capture_fps())
+        self.fps_control.fps_changed.connect(self._on_fps_changed)
+        control_layout.addWidget(self.fps_control)
+
         # Create start/stop buttons
         self.start_button = QPushButton("Start Capture")
         self.start_button.clicked.connect(self._start_capture)
@@ -106,6 +114,19 @@ class VisionMateApp:
         logger.info(f"Input mode changed to {mode}")
         self.session_manager.set_input_mode(mode)
 
+    def _on_fps_changed(self, fps: int) -> None:
+        """Handle FPS change.
+
+        Args:
+            fps: New FPS value
+        """
+        logger.info(f"FPS changed to {fps}")
+        self.session_manager.set_capture_fps(fps)
+
+        # Update video preview FPS if it's running
+        if self.video_preview.is_preview_active():
+            self.video_preview.set_preview_fps(fps)
+
     def _start_capture(self) -> None:
         """Start capture and preview."""
         try:
@@ -114,16 +135,20 @@ class VisionMateApp:
             # Disable controls during capture
             self.input_mode_widget.set_capture_active(True)
             self.device_controls.set_capture_active(True)
+            self.fps_control.set_capture_active(True)
+
+            # Get current FPS from control
+            fps = self.fps_control.get_fps()
 
             # Start capture through session manager
-            self.session_manager.start_capture(fps=30)
+            self.session_manager.start_capture(fps=fps)
             logger.info("Capture started through session manager")
 
             # Start previews based on input mode
             current_mode = self.session_manager.get_input_mode()
 
             if current_mode.has_video:
-                self.video_preview.start_preview(fps=30)
+                self.video_preview.start_preview(fps=fps)
                 logger.info("Video preview started")
 
             if current_mode.has_audio:
@@ -139,6 +164,7 @@ class VisionMateApp:
             # Re-enable controls on error
             self.input_mode_widget.set_capture_active(False)
             self.device_controls.set_capture_active(False)
+            self.fps_control.set_capture_active(False)
 
     def _stop_capture(self) -> None:
         """Stop capture and preview."""
@@ -157,6 +183,7 @@ class VisionMateApp:
             # Re-enable controls
             self.input_mode_widget.set_capture_active(False)
             self.device_controls.set_capture_active(False)
+            self.fps_control.set_capture_active(False)
 
             # Update button states
             self.start_button.setEnabled(True)

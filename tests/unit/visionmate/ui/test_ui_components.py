@@ -3,10 +3,10 @@
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from visionmate.ui import (
+from visionmate.ui import MainWindow
+from visionmate.ui.widgets import (
     AudioWaveformWidget,
     DeviceControlsWidget,
-    MainWindow,
     VideoPreviewWidget,
 )
 

@@ -69,6 +69,25 @@ class VideoPreviewWidget(QWidget):
         """Stop updating the preview."""
         self._update_timer.stop()
 
+    def is_preview_active(self) -> bool:
+        """Check if preview is currently active.
+
+        Returns:
+            True if preview is running, False otherwise
+        """
+        return self._update_timer.isActive()
+
+    def set_preview_fps(self, fps: int) -> None:
+        """Set preview frame rate dynamically.
+
+        Args:
+            fps: New frame rate for preview updates
+        """
+        if self.is_preview_active():
+            # Restart timer with new interval
+            interval_ms = int(1000 / fps)
+            self._update_timer.start(interval_ms)
+
     def _update_frame(self) -> None:
         """Update the displayed frame from capture."""
         if self._capture is None:

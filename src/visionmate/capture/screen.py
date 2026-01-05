@@ -1,5 +1,6 @@
 """Screen capture interface and implementations."""
 
+import logging
 import os
 import platform
 import threading
@@ -13,6 +14,8 @@ import cv2
 import mss
 import mss.tools
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -238,7 +241,14 @@ class MSSScreenCapture(ScreenCaptureInterface):
 
     def set_fps(self, fps: int) -> None:
         """Set capture frame rate (1-60 FPS)."""
+        old_fps = self._fps
         self._fps = max(1, min(60, fps))
+
+        # If FPS changed and capture is active, the capture loop will
+        # automatically adjust on the next frame due to recalculating
+        # frame_interval from self._fps
+        if old_fps != self._fps and self._is_capturing:
+            logger.debug(f"FPS changed from {old_fps} to {self._fps} during capture")
 
     def get_fps(self) -> int:
         """Get current capture frame rate."""
@@ -252,11 +262,13 @@ class MSSScreenCapture(ScreenCaptureInterface):
         """Main capture loop running in separate thread."""
         # Create MSS instance in this thread (thread-local)
         with mss.mss() as sct:
-            frame_interval = 1.0 / self._fps
             next_frame_time = time.time()
 
             while not self._stop_event.is_set():
                 current_time = time.time()
+
+                # Recalculate frame_interval on each iteration to support dynamic FPS changes
+                frame_interval = 1.0 / self._fps
 
                 if current_time >= next_frame_time:
                     # Capture frame
@@ -705,9 +717,16 @@ class UVCScreenCapture(ScreenCaptureInterface):
 
     def set_fps(self, fps: int) -> None:
         """Set capture frame rate (1-60 FPS)."""
+        old_fps = self._fps
         self._fps = max(1, min(60, fps))
+
+        # Update OpenCV capture property if device is open
         if self._cap and self._cap.isOpened():
             self._cap.set(cv2.CAP_PROP_FPS, self._fps)
+
+        # Log FPS change during capture
+        if old_fps != self._fps and self._is_capturing:
+            logger.debug(f"FPS changed from {old_fps} to {self._fps} during capture")
 
     def get_fps(self) -> int:
         """Get current capture frame rate."""
@@ -723,11 +742,13 @@ class UVCScreenCapture(ScreenCaptureInterface):
 
     def _capture_loop(self) -> None:
         """Main capture loop running in separate thread."""
-        frame_interval = 1.0 / self._fps
         next_frame_time = time.time()
 
         while not self._stop_event.is_set():
             current_time = time.time()
+
+            # Recalculate frame_interval on each iteration to support dynamic FPS changes
+            frame_interval = 1.0 / self._fps
 
             if current_time >= next_frame_time:
                 # Capture frame
