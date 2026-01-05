@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/yuyash/visionmate/compare/v0.4.0...v0.5.0) (2026-01-05)
+
+
+### Features
+
+* **core:** implement input mode switching ([#16](https://github.com/yuyash/visionmate/issues/16)) ([ea0fbab](https://github.com/yuyash/visionmate/commit/ea0fbabc4e6d09cb98dedddfbc4990b27c387e92))
+
 ## [0.4.0](https://github.com/yuyash/visionmate/compare/v0.3.0...v0.4.0) (2026-01-05)
 
 
