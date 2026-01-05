@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/yuyash/visionmate/compare/v0.5.0...v0.6.0) (2026-01-05)
+
+
+### Features
+
+* **ui,capture:** implement FPS configuration with dynamic adjustment ([#18](https://github.com/yuyash/visionmate/issues/18)) ([ad3fb66](https://github.com/yuyash/visionmate/commit/ad3fb66c163bb82a1ac8f0d2f3aacfb82f325c6c))
+
 ## [0.5.0](https://github.com/yuyash/visionmate/compare/v0.4.0...v0.5.0) (2026-01-05)
 
 
