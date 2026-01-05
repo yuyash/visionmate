@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deskmate"
-version = "0.1.0"
+version = "0.2.0"
 description = "App that streams UVC video and audio into Qwen3-omni (local or remote), fuses screen captures with spoken context, and surfaces answers"
 readme = "README.md"
 license = { file = "LICENSE" }
