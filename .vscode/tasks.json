@@ -1,0 +1,120 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run All Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/ -v",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Tests with Coverage",
+      "type": "shell",
+      "command": "python -m pytest tests/ --cov=src/deskmate --cov-report=html --cov-report=term",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Screen Capture Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/test_screen_capture.py -v",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Audio Capture Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/test_audio_capture.py -v",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Ruff Linter",
+      "type": "shell",
+      "command": "ruff check src/ tests/",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Ruff Format",
+      "type": "shell",
+      "command": "ruff format src/ tests/",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Pre-commit Hooks",
+      "type": "shell",
+      "command": "pre-commit run --all-files",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Install Dependencies",
+      "type": "shell",
+      "command": "uv sync",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Python Cache",
+      "type": "shell",
+      "command": "find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true && find . -type d -name '.pytest_cache' -exec rm -rf {} + 2>/dev/null || true && find . -type d -name '.ruff_cache' -exec rm -rf {} + 2>/dev/null || true",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build and Test",
+      "dependsOn": [
+        "Run Ruff Linter",
+        "Run All Tests"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
