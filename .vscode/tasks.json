@@ -27,28 +27,6 @@
       "problemMatcher": []
     },
     {
-      "label": "Run Screen Capture Tests",
-      "type": "shell",
-      "command": "python -m pytest tests/test_screen_capture.py -v",
-      "group": "test",
-      "presentation": {
-        "reveal": "always",
-        "panel": "new"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Run Audio Capture Tests",
-      "type": "shell",
-      "command": "python -m pytest tests/test_audio_capture.py -v",
-      "group": "test",
-      "presentation": {
-        "reveal": "always",
-        "panel": "new"
-      },
-      "problemMatcher": []
-    },
-    {
       "label": "Run Ruff Linter",
       "type": "shell",
       "command": "ruff check src/ tests/",
