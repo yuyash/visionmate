@@ -22,6 +22,23 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            portaudio19-dev \
+            libegl1 \
+            libxkbcommon-x11-0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0 \
+            libxcb-shape0 \
+            libxcb-cursor0
+
       - name: Ensure Python 3.14 is available
         run: uv python install 3.14
 
@@ -35,7 +52,10 @@ jobs:
         run: uv run ty check .
 
       - name: Tests with coverage
-        run: uv run pytest --cov=src --cov-report=xml --cov-report=html
+        run: |
+          # Set up virtual display for Qt tests
+          export QT_QPA_PLATFORM=offscreen
+          uv run pytest --cov=src --cov-report=xml --cov-report=html
 
       - name: Upload coverage HTML artifact
         uses: actions/upload-artifact@v4
