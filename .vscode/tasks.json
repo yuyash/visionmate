@@ -4,7 +4,7 @@
     {
       "label": "Run All Tests",
       "type": "shell",
-      "command": "python -m pytest tests/ -v",
+      "command": "uv run pytest tests/ -v",
       "group": {
         "kind": "test",
         "isDefault": true
@@ -16,9 +16,31 @@
       "problemMatcher": []
     },
     {
+      "label": "Run Unit Tests",
+      "type": "shell",
+      "command": "uv run pytest tests/unit/ -v",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Integration Tests",
+      "type": "shell",
+      "command": "uv run pytest tests/integration/ -v",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Run Tests with Coverage",
       "type": "shell",
-      "command": "python -m pytest tests/ --cov=src/visionmate --cov-report=html --cov-report=term",
+      "command": "uv run pytest tests/ --cov=src --cov-report=html --cov-report=term",
       "group": "test",
       "presentation": {
         "reveal": "always",
@@ -29,7 +51,7 @@
     {
       "label": "Run Ruff Linter",
       "type": "shell",
-      "command": "ruff check src/ tests/",
+      "command": "uv run ruff check .",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -40,7 +62,18 @@
     {
       "label": "Run Ruff Format",
       "type": "shell",
-      "command": "ruff format src/ tests/",
+      "command": "uv run ruff format .",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Type Check",
+      "type": "shell",
+      "command": "uv run ty check .",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -51,7 +84,7 @@
     {
       "label": "Run Pre-commit Hooks",
       "type": "shell",
-      "command": "pre-commit run --all-files",
+      "command": "uv run pre-commit run --all-files",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -85,6 +118,7 @@
       "label": "Build and Test",
       "dependsOn": [
         "Run Ruff Linter",
+        "Run Type Check",
         "Run All Tests"
       ],
       "dependsOrder": "sequence",

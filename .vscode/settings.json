@@ -13,7 +13,6 @@
   "ruff.interpreter": [
     "${workspaceFolder}/.venv/bin/python"
   ],
-  "ty.enable": true,
   "[python]": {
     "editor.tabSize": 4,
     "editor.insertSpaces": true,

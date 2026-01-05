@@ -17,20 +17,6 @@
       "stopOnEntry": false
     },
     {
-      "name": "Run VisionMate Desktop UI (External Terminal)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/visionmate/app.py",
-      "python": "${workspaceFolder}/.venv/bin/python",
-      "console": "externalTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src",
-        "QT_MAC_WANTS_LAYER": "1"
-      }
-    },
-    {
       "name": "Python: Current File",
       "type": "debugpy",
       "request": "launch",
