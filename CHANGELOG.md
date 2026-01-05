@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/yuyash/deskmate/compare/v0.2.0...v0.3.0) (2026-01-05)
+
+
+### Features
+
+* add audio capture module ([#12](https://github.com/yuyash/deskmate/issues/12)) ([d216295](https://github.com/yuyash/deskmate/commit/d21629584e213c0a12b623b728c55331705fbf63))
+
 ## [0.2.0](https://github.com/yuyash/deskmate/compare/v0.1.0...v0.2.0) (2026-01-05)
 
 
