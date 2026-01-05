@@ -9,7 +9,7 @@ import sys
 if sys.platform == "darwin":  # macOS
     os.environ.setdefault("QT_MAC_WANTS_LAYER", "1")
 
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication
 
 from visionmate.capture.audio import SoundDeviceAudioCapture
 from visionmate.capture.screen import MSSScreenCapture, UVCScreenCapture
@@ -26,6 +26,7 @@ from visionmate.ui.widgets import (
     DeviceControlsWidget,
     FPSControlWidget,
     InputModeWidget,
+    SessionControlWidget,
     VideoPreviewWidget,
 )
 
@@ -97,15 +98,20 @@ class VisionMateApp:
         self.fps_control.fps_changed.connect(self._on_fps_changed)
         control_layout.addWidget(self.fps_control)
 
-        # Create start/stop buttons
-        self.start_button = QPushButton("Start Capture")
-        self.start_button.clicked.connect(self._start_capture)
-        control_layout.addWidget(self.start_button)
+        # Create session control buttons
+        self.session_control = SessionControlWidget()
+        self.session_control.start_capture_clicked.connect(self._on_start_capture)
+        self.session_control.stop_capture_clicked.connect(self._on_stop_capture)
+        self.session_control.start_recognition_clicked.connect(self._on_start_recognition)
+        self.session_control.stop_recognition_clicked.connect(self._on_stop_recognition)
+        self.session_control.reset_clicked.connect(self._on_reset)
+        control_layout.addWidget(self.session_control)
 
-        self.stop_button = QPushButton("Stop Capture")
-        self.stop_button.clicked.connect(self._stop_capture)
-        self.stop_button.setEnabled(False)
-        control_layout.addWidget(self.stop_button)
+        # Register session manager callbacks to update UI
+        self.session_manager.register_callback("capture_started", self._on_capture_started)
+        self.session_manager.register_callback("capture_stopped", self._on_capture_stopped)
+        self.session_manager.register_callback("recognition_started", self._on_recognition_started)
+        self.session_manager.register_callback("recognition_stopped", self._on_recognition_stopped)
 
         # Add stretch to push controls to top
         control_layout.addStretch()
@@ -163,8 +169,8 @@ class VisionMateApp:
         if self.video_preview.is_preview_active():
             self.video_preview.set_preview_fps(fps)
 
-    def _start_capture(self) -> None:
-        """Start capture and preview."""
+    def _on_start_capture(self) -> None:
+        """Handle start capture button click."""
         try:
             logger.info("Starting capture...")
 
@@ -181,21 +187,6 @@ class VisionMateApp:
             self.session_manager.start_capture(fps=fps)
             logger.info("Capture started through session manager")
 
-            # Start previews based on input mode
-            current_mode = self.session_manager.get_input_mode()
-
-            if current_mode.has_video:
-                self.video_preview.start_preview(fps=fps)
-                logger.info("Video preview started")
-
-            if current_mode.has_audio:
-                self.audio_waveform.start_preview(fps=30)
-                logger.info("Audio waveform started")
-
-            # Update button states
-            self.start_button.setEnabled(False)
-            self.stop_button.setEnabled(True)
-
         except Exception as e:
             logger.error(f"Error starting capture: {e}", exc_info=True)
             # Re-enable controls on error
@@ -204,32 +195,112 @@ class VisionMateApp:
             self.device_controls.set_capture_active(False)
             self.fps_control.set_capture_active(False)
 
-    def _stop_capture(self) -> None:
-        """Stop capture and preview."""
+    def _on_stop_capture(self) -> None:
+        """Handle stop capture button click."""
         try:
             logger.info("Stopping capture...")
-
-            # Stop previews
-            self.video_preview.stop_preview()
-            self.audio_waveform.stop_preview()
-            logger.info("Previews stopped")
 
             # Stop capture through session manager
             self.session_manager.stop_capture()
             logger.info("Capture stopped through session manager")
 
-            # Re-enable controls
-            self.capture_method_widget.set_capture_active(False)
-            self.input_mode_widget.set_capture_active(False)
-            self.device_controls.set_capture_active(False)
-            self.fps_control.set_capture_active(False)
-
-            # Update button states
-            self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
-
         except Exception as e:
             logger.error(f"Error stopping capture: {e}", exc_info=True)
+
+    def _on_start_recognition(self) -> None:
+        """Handle start recognition button click."""
+        try:
+            logger.info("Starting recognition...")
+
+            # Start recognition through session manager
+            self.session_manager.start_recognition()
+            logger.info("Recognition started through session manager")
+
+        except Exception as e:
+            logger.error(f"Error starting recognition: {e}", exc_info=True)
+
+    def _on_stop_recognition(self) -> None:
+        """Handle stop recognition button click."""
+        try:
+            logger.info("Stopping recognition...")
+
+            # Stop recognition through session manager
+            self.session_manager.stop_recognition()
+            logger.info("Recognition stopped through session manager")
+
+        except Exception as e:
+            logger.error(f"Error stopping recognition: {e}", exc_info=True)
+
+    def _on_reset(self) -> None:
+        """Handle reset button click."""
+        try:
+            logger.info("Resetting session...")
+
+            # Reset through session manager
+            self.session_manager.reset()
+            logger.info("Session reset through session manager")
+
+        except Exception as e:
+            logger.error(f"Error resetting session: {e}", exc_info=True)
+
+    def _on_capture_started(self, **kwargs) -> None:
+        """Handle capture started event from session manager."""
+        logger.debug("Capture started event received")
+
+        # Update session control widget state
+        from visionmate.core.session import SessionState
+
+        self.session_control.set_session_state(SessionState.CAPTURING.value)
+
+        # Start previews based on input mode
+        current_mode = self.session_manager.get_input_mode()
+        fps = self.fps_control.get_fps()
+
+        if current_mode.has_video:
+            self.video_preview.start_preview(fps=fps)
+            logger.info("Video preview started")
+
+        if current_mode.has_audio:
+            self.audio_waveform.start_preview(fps=30)
+            logger.info("Audio waveform started")
+
+    def _on_capture_stopped(self, **kwargs) -> None:
+        """Handle capture stopped event from session manager."""
+        logger.debug("Capture stopped event received")
+
+        # Update session control widget state
+        from visionmate.core.session import SessionState
+
+        self.session_control.set_session_state(SessionState.IDLE.value)
+
+        # Stop previews
+        self.video_preview.stop_preview()
+        self.audio_waveform.stop_preview()
+        logger.info("Previews stopped")
+
+        # Re-enable controls
+        self.capture_method_widget.set_capture_active(False)
+        self.input_mode_widget.set_capture_active(False)
+        self.device_controls.set_capture_active(False)
+        self.fps_control.set_capture_active(False)
+
+    def _on_recognition_started(self, **kwargs) -> None:
+        """Handle recognition started event from session manager."""
+        logger.debug("Recognition started event received")
+
+        # Update session control widget state
+        from visionmate.core.session import SessionState
+
+        self.session_control.set_session_state(SessionState.RECOGNIZING.value)
+
+    def _on_recognition_stopped(self, **kwargs) -> None:
+        """Handle recognition stopped event from session manager."""
+        logger.debug("Recognition stopped event received")
+
+        # Update session control widget state
+        from visionmate.core.session import SessionState
+
+        self.session_control.set_session_state(SessionState.CAPTURING.value)
 
     def run(self) -> int:
         """Run the application.
