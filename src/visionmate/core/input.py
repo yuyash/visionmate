@@ -3,6 +3,23 @@
 from enum import Enum
 
 
+class CaptureMethod(Enum):
+    """Capture method for screen input.
+
+    Defines which capture technology is used for screen capture.
+    """
+
+    OS_NATIVE = "os_native"  # OS-native screen capture (MSS)
+    UVC_DEVICE = "uvc_device"  # UVC device capture (OpenCV)
+
+    def __str__(self) -> str:
+        """Return human-readable string representation."""
+        return {
+            CaptureMethod.OS_NATIVE: "OS-Native (MSS)",
+            CaptureMethod.UVC_DEVICE: "UVC Device",
+        }[self]
+
+
 class InputMode(Enum):
     """Input mode for capture system.
 

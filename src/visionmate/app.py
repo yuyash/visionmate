@@ -12,8 +12,8 @@ if sys.platform == "darwin":  # macOS
 from PySide6.QtWidgets import QApplication, QPushButton
 
 from visionmate.capture.audio import SoundDeviceAudioCapture
-from visionmate.capture.screen import MSSScreenCapture
-from visionmate.core.input import InputMode
+from visionmate.capture.screen import MSSScreenCapture, UVCScreenCapture
+from visionmate.core.input import CaptureMethod, InputMode
 from visionmate.core.logging import LoggingConfig
 from visionmate.core.session import SessionManager
 from visionmate.core.version import __version__
@@ -22,6 +22,7 @@ from visionmate.ui import (
 )
 from visionmate.ui.widgets import (
     AudioWaveformWidget,
+    CaptureMethodWidget,
     DeviceControlsWidget,
     FPSControlWidget,
     InputModeWidget,
@@ -41,15 +42,20 @@ class VisionMateApp:
         logger.info("QApplication created")
 
         # Create capture instances
-        self.screen_capture = MSSScreenCapture()
-        logger.info("Screen capture created")
+        self.os_native_capture = MSSScreenCapture()
+        logger.info("OS-native screen capture created")
+
+        self.uvc_capture = UVCScreenCapture(device_id=0)
+        logger.info("UVC screen capture created")
+
         self.audio_capture = SoundDeviceAudioCapture()
         logger.info("Audio capture created")
 
         # Create session manager
         self.session_manager = SessionManager(
-            screen_capture=self.screen_capture,
+            screen_capture=self.os_native_capture,
             audio_capture=self.audio_capture,
+            uvc_capture=self.uvc_capture,
         )
         logger.info("Session manager created")
 
@@ -67,6 +73,13 @@ class VisionMateApp:
         control_layout = self.main_window.get_control_panel_layout()
         preview_layout = self.main_window.get_preview_panel_layout()
 
+        # Create capture method controls
+        self.capture_method_widget = CaptureMethodWidget(
+            initial_method=self.session_manager.get_capture_method()
+        )
+        self.capture_method_widget.capture_method_changed.connect(self._on_capture_method_changed)
+        control_layout.addWidget(self.capture_method_widget)
+
         # Create input mode controls
         self.input_mode_widget = InputModeWidget(initial_mode=self.session_manager.get_input_mode())
         self.input_mode_widget.input_mode_changed.connect(self._on_input_mode_changed)
@@ -74,7 +87,7 @@ class VisionMateApp:
 
         # Create device controls
         self.device_controls = DeviceControlsWidget(
-            screen_capture=self.screen_capture,
+            screen_capture=self.os_native_capture,
             audio_capture=self.audio_capture,
         )
         control_layout.addWidget(self.device_controls)
@@ -97,13 +110,36 @@ class VisionMateApp:
         # Add stretch to push controls to top
         control_layout.addStretch()
 
-        # Create video preview
-        self.video_preview = VideoPreviewWidget(capture=self.screen_capture)
+        # Create video preview (will use active capture from session manager)
+        self.video_preview = VideoPreviewWidget(capture=self.os_native_capture)
         preview_layout.addWidget(self.video_preview)
 
         # Create audio waveform
         self.audio_waveform = AudioWaveformWidget(capture=self.audio_capture)
         preview_layout.addWidget(self.audio_waveform)
+
+    def _on_capture_method_changed(self, method: CaptureMethod) -> None:
+        """Handle capture method change.
+
+        Args:
+            method: New capture method
+        """
+        logger.info(f"Capture method changed to {method}")
+
+        try:
+            self.session_manager.set_capture_method(method)
+
+            # Update video preview to use the new capture interface
+            active_capture = self.session_manager.get_active_screen_capture()
+            self.video_preview.set_capture(active_capture)
+
+            # Update device controls to use the new capture interface
+            self.device_controls.set_screen_capture(active_capture)
+
+        except ValueError as e:
+            logger.error(f"Error changing capture method: {e}")
+            # Revert UI to previous method
+            self.capture_method_widget.set_capture_method(self.session_manager.get_capture_method())
 
     def _on_input_mode_changed(self, mode: InputMode) -> None:
         """Handle input mode change.
@@ -133,6 +169,7 @@ class VisionMateApp:
             logger.info("Starting capture...")
 
             # Disable controls during capture
+            self.capture_method_widget.set_capture_active(True)
             self.input_mode_widget.set_capture_active(True)
             self.device_controls.set_capture_active(True)
             self.fps_control.set_capture_active(True)
@@ -162,6 +199,7 @@ class VisionMateApp:
         except Exception as e:
             logger.error(f"Error starting capture: {e}", exc_info=True)
             # Re-enable controls on error
+            self.capture_method_widget.set_capture_active(False)
             self.input_mode_widget.set_capture_active(False)
             self.device_controls.set_capture_active(False)
             self.fps_control.set_capture_active(False)
@@ -181,6 +219,7 @@ class VisionMateApp:
             logger.info("Capture stopped through session manager")
 
             # Re-enable controls
+            self.capture_method_widget.set_capture_active(False)
             self.input_mode_widget.set_capture_active(False)
             self.device_controls.set_capture_active(False)
             self.fps_control.set_capture_active(False)

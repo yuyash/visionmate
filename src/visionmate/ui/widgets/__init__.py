@@ -3,6 +3,7 @@
 from visionmate.ui.widgets.device import DeviceControlsWidget
 from visionmate.ui.widgets.fps import FPSControlWidget
 from visionmate.ui.widgets.input import InputModeWidget
+from visionmate.ui.widgets.method import CaptureMethodWidget
 from visionmate.ui.widgets.preview import VideoPreviewWidget
 from visionmate.ui.widgets.waveform import AudioWaveformWidget
 
@@ -12,4 +13,5 @@ __all__ = [
     "DeviceControlsWidget",
     "InputModeWidget",
     "FPSControlWidget",
+    "CaptureMethodWidget",
 ]
