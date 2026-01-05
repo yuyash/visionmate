@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
-from deskmate.capture.screen_capture import (
+from visionmate.capture.screen_capture import (
     MSSScreenCapture,
     ScreenCaptureInterface,
     UVCScreenCapture,
@@ -69,7 +69,7 @@ class TestMSSScreenCapture:
             assert "width" in device
             assert "height" in device
 
-    @patch("deskmate.capture.screen_capture.mss.mss")
+    @patch("visionmate.capture.screen_capture.mss.mss")
     def test_capture_start_stop(self, mock_mss):
         """Test starting and stopping capture."""
         # Mock MSS
@@ -95,7 +95,7 @@ class TestMSSScreenCapture:
         capture.stop_capture()
         assert not capture._is_capturing
 
-    @patch("deskmate.capture.screen_capture.mss.mss")
+    @patch("visionmate.capture.screen_capture.mss.mss")
     def test_frame_buffering(self, mock_mss):
         """Test frame buffer management."""
         # Mock MSS

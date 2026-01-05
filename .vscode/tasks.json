@@ -18,7 +18,7 @@
     {
       "label": "Run Tests with Coverage",
       "type": "shell",
-      "command": "python -m pytest tests/ --cov=src/deskmate --cov-report=html --cov-report=term",
+      "command": "python -m pytest tests/ --cov=src/visionmate --cov-report=html --cov-report=term",
       "group": "test",
       "presentation": {
         "reveal": "always",

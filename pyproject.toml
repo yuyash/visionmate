@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "deskmate"
+name = "visionmate"
 version = "0.3.0"
-description = "App that streams UVC video and audio into Qwen3-omni (local or remote), fuses screen captures with spoken context, and surfaces answers"
+description = "visionmate is a multi-modal assistant that continuously observes UVC video or screen capture and audio and streams into VLM (Vision Language Model), fusing vision inputs with spoken context to understand conversations and surface answers in real time."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.14"
