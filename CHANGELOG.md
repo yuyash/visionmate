@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/yuyash/visionmate/compare/v0.3.0...v0.4.0) (2026-01-05)
+
+
+### Features
+
+* add desktop UI with preview ([#14](https://github.com/yuyash/visionmate/issues/14)) ([b32bbc5](https://github.com/yuyash/visionmate/commit/b32bbc58b55482c984be62319fbcbe1fa8198083))
+
 ## [0.3.0](https://github.com/yuyash/visionmate/compare/v0.2.0...v0.3.0) (2026-01-05)
 
 ### Features
