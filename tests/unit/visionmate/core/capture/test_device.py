@@ -1,111 +1,178 @@
-"""Unit tests for DeviceManager.
+"""Unit tests for DeviceManager using mocks.
 
 Tests device enumeration, metadata retrieval, settings validation,
-and optimal settings suggestions.
+and optimal settings suggestions without accessing real hardware.
 """
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from visionmate.core.capture import DeviceManager
-from visionmate.core.models import DeviceType
+from visionmate.core.models import DeviceType, Resolution
 
 
 class TestDeviceManager:
-    """Test suite for DeviceManager class."""
+    """Test suite for DeviceManager class using mocks."""
 
     @pytest.fixture
     def device_manager(self):
         """Create a DeviceManager instance for testing."""
         return DeviceManager()
 
-    def test_enumerate_screens(self, device_manager):
-        """Test screen enumeration.
+    @patch("mss.mss")
+    def test_enumerate_screens(self, mock_mss, device_manager):
+        """Test screen enumeration with mocked mss.
 
         Requirements: 1.7
         """
+        # Mock mss to return fake monitors
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},  # Monitor 0 is virtual "all monitors"
+            {"width": 1920, "height": 1080},
+            {"width": 2560, "height": 1440},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
+
         screens = device_manager.enumerate_screens()
 
-        # Should find at least one screen
-        assert len(screens) > 0
+        # Should find 2 screens (excluding virtual monitor 0)
+        assert len(screens) == 2
 
-        # Verify screen metadata structure
-        for screen in screens:
-            assert screen.device_type == DeviceType.SCREEN
-            assert screen.device_id.startswith("screen_")
-            assert len(screen.supported_resolutions) > 0
-            assert len(screen.supported_fps) > 0
-            assert screen.native_fps is not None
-            assert screen.is_available is True
+        # Verify first screen
+        assert screens[0].device_type == DeviceType.SCREEN
+        assert screens[0].device_id == "screen_1"
+        assert screens[0].current_resolution == Resolution(1920, 1080)
+        assert screens[0].native_fps == 60
+        assert screens[0].is_available is True
 
-    def test_enumerate_uvc_devices(self, device_manager):
-        """Test UVC device enumeration.
+        # Verify second screen
+        assert screens[1].device_id == "screen_2"
+        assert screens[1].current_resolution == Resolution(2560, 1440)
+
+    @patch("cv2.VideoCapture")
+    def test_enumerate_uvc_devices(self, mock_video_capture, device_manager):
+        """Test UVC device enumeration with mocked OpenCV.
 
         Requirements: 1.8
-
-        Note: This test may find 0 devices if no UVC devices are connected.
         """
+
+        # Mock VideoCapture to return one device at index 0
+        def mock_capture_factory(index):
+            mock_cap = MagicMock()
+            if index == 0:
+                mock_cap.isOpened.return_value = True
+                mock_cap.get.side_effect = lambda prop: {
+                    3: 1920,  # CAP_PROP_FRAME_WIDTH
+                    4: 1080,  # CAP_PROP_FRAME_HEIGHT
+                    5: 30,  # CAP_PROP_FPS
+                }.get(prop, 0)
+            else:
+                mock_cap.isOpened.return_value = False
+            return mock_cap
+
+        mock_video_capture.side_effect = mock_capture_factory
+
         devices = device_manager.enumerate_uvc_devices()
 
-        # Verify device metadata structure for any found devices
-        for device in devices:
-            assert device.device_type == DeviceType.UVC
-            assert device.device_id.startswith("uvc_")
-            assert len(device.supported_resolutions) > 0
-            assert len(device.supported_fps) > 0
-            assert device.native_fps is not None
-            assert device.is_available is True
+        # Should find 1 device
+        assert len(devices) == 1
+        assert devices[0].device_type == DeviceType.UVC
+        assert devices[0].device_id == "uvc_0"
+        assert devices[0].current_resolution == Resolution(1920, 1080)
+        assert devices[0].native_fps == 30
+        assert devices[0].is_available is True
 
-    def test_enumerate_audio_devices(self, device_manager):
-        """Test audio device enumeration.
+    @patch("sounddevice.query_devices")
+    def test_enumerate_audio_devices(self, mock_query_devices, device_manager):
+        """Test audio device enumeration with mocked sounddevice.
 
         Requirements: 2.7
         """
+        # Mock sounddevice to return fake audio devices
+        mock_query_devices.return_value = [
+            {
+                "name": "Built-in Microphone",
+                "max_input_channels": 2,
+                "max_output_channels": 0,
+                "default_samplerate": 48000,
+            },
+            {
+                "name": "Built-in Output",
+                "max_input_channels": 0,
+                "max_output_channels": 2,
+                "default_samplerate": 48000,
+            },
+            {
+                "name": "USB Microphone",
+                "max_input_channels": 1,
+                "max_output_channels": 0,
+                "default_samplerate": 44100,
+            },
+        ]
+
         devices = device_manager.enumerate_audio_devices()
 
-        # Should find at least one audio device
-        assert len(devices) > 0
+        # Should find 2 input devices (excluding output-only device)
+        assert len(devices) == 2
 
-        # Verify audio device metadata structure
-        for device in devices:
-            assert device.device_type == DeviceType.AUDIO
-            assert device.device_id.startswith("audio_")
-            assert len(device.sample_rates) > 0
-            assert len(device.channels) > 0
-            assert device.current_sample_rate is not None
-            assert device.is_available is True
+        # Verify first device
+        assert devices[0].device_type == DeviceType.AUDIO
+        assert devices[0].device_id == "audio_0"
+        assert devices[0].name == "Built-in Microphone"
+        assert devices[0].current_sample_rate == 48000
+        assert 48000 in devices[0].sample_rates
+        assert devices[0].is_available is True
 
-    def test_get_device_metadata_screen(self, device_manager):
+        # Verify second device
+        assert devices[1].device_id == "audio_2"
+        assert devices[1].name == "USB Microphone"
+        assert devices[1].current_sample_rate == 44100
+
+    @patch("mss.mss")
+    def test_get_device_metadata_screen(self, mock_mss, device_manager):
         """Test getting metadata for a screen device.
 
         Requirements: 27.1-27.6
         """
-        screens = device_manager.enumerate_screens()
-        assert len(screens) > 0
+        # Mock mss
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
 
-        # Get metadata for first screen
-        device_id = screens[0].device_id
-        metadata = device_manager.get_device_metadata(device_id)
+        metadata = device_manager.get_device_metadata("screen_1")
 
-        assert metadata.device_id == device_id
+        assert metadata.device_id == "screen_1"
         assert metadata.device_type == DeviceType.SCREEN
-        assert len(metadata.supported_resolutions) > 0
+        assert metadata.current_resolution == Resolution(1920, 1080)
         assert len(metadata.supported_fps) > 0
-        assert metadata.native_fps is not None
+        assert metadata.native_fps == 60
 
-    def test_get_device_metadata_audio(self, device_manager):
+    @patch("sounddevice.query_devices")
+    def test_get_device_metadata_audio(self, mock_query_devices, device_manager):
         """Test getting metadata for an audio device.
 
         Requirements: 27.1-27.6
         """
-        devices = device_manager.enumerate_audio_devices()
-        assert len(devices) > 0
+        # Mock sounddevice
+        mock_query_devices.return_value = [
+            {
+                "name": "Test Microphone",
+                "max_input_channels": 2,
+                "max_output_channels": 0,
+                "default_samplerate": 48000,
+            },
+        ]
 
-        # Get metadata for first audio device
-        device_id = devices[0].device_id
-        metadata = device_manager.get_device_metadata(device_id)
+        metadata = device_manager.get_device_metadata("audio_0")
 
-        assert metadata.device_id == device_id
+        assert metadata.device_id == "audio_0"
         assert metadata.device_type == DeviceType.AUDIO
+        assert metadata.current_sample_rate == 48000
         assert len(metadata.sample_rates) > 0
         assert len(metadata.channels) > 0
 
@@ -114,79 +181,103 @@ class TestDeviceManager:
         with pytest.raises(ValueError, match="Invalid device_id format"):
             device_manager.get_device_metadata("invalid_device_id")
 
-    def test_get_device_metadata_not_found(self, device_manager):
+    @patch("mss.mss")
+    def test_get_device_metadata_not_found(self, mock_mss, device_manager):
         """Test getting metadata for non-existent device."""
+        # Mock mss with only one screen
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
+
         with pytest.raises(ValueError, match="Device not found"):
             device_manager.get_device_metadata("screen_999")
 
-    def test_validate_settings_valid_resolution(self, device_manager):
+    @patch("mss.mss")
+    def test_validate_settings_valid_resolution(self, mock_mss, device_manager):
         """Test validating valid resolution settings.
 
         Requirements: 27.8
         """
-        screens = device_manager.enumerate_screens()
-        assert len(screens) > 0
+        # Mock mss
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
 
-        device_id = screens[0].device_id
-        resolution = screens[0].supported_resolutions[0].to_tuple()
+        # Valid resolution
+        assert device_manager.validate_settings("screen_1", resolution=(1920, 1080)) is True
 
-        # Should validate successfully
-        assert device_manager.validate_settings(device_id, resolution=resolution) is True
-
-    def test_validate_settings_valid_fps(self, device_manager):
+    @patch("mss.mss")
+    def test_validate_settings_valid_fps(self, mock_mss, device_manager):
         """Test validating valid FPS settings.
 
         Requirements: 27.8
         """
-        screens = device_manager.enumerate_screens()
-        assert len(screens) > 0
+        # Mock mss
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
 
-        device_id = screens[0].device_id
-        fps = screens[0].supported_fps[0]
+        # Valid FPS (1-60 are all valid for screens)
+        assert device_manager.validate_settings("screen_1", fps=30) is True
 
-        # Should validate successfully
-        assert device_manager.validate_settings(device_id, fps=fps) is True
-
-    def test_validate_settings_invalid_resolution(self, device_manager):
+    @patch("mss.mss")
+    def test_validate_settings_invalid_resolution(self, mock_mss, device_manager):
         """Test validating invalid resolution settings.
 
         Requirements: 27.8
         """
-        screens = device_manager.enumerate_screens()
-        assert len(screens) > 0
+        # Mock mss
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
 
-        device_id = screens[0].device_id
-        # Use an unlikely resolution
-        invalid_resolution = (99999, 99999)
+        # Invalid resolution
+        assert device_manager.validate_settings("screen_1", resolution=(99999, 99999)) is False
 
-        # Should fail validation
-        assert device_manager.validate_settings(device_id, resolution=invalid_resolution) is False
-
-    def test_validate_settings_invalid_fps(self, device_manager):
+    @patch("mss.mss")
+    def test_validate_settings_invalid_fps(self, mock_mss, device_manager):
         """Test validating invalid FPS settings.
 
         Requirements: 27.8
         """
-        screens = device_manager.enumerate_screens()
-        assert len(screens) > 0
+        # Mock mss
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
 
-        device_id = screens[0].device_id
-        # Use an invalid FPS
-        invalid_fps = 999
+        # Invalid FPS (999 is not in supported range)
+        assert device_manager.validate_settings("screen_1", fps=999) is False
 
-        # Should fail validation
-        assert device_manager.validate_settings(device_id, fps=invalid_fps) is False
-
-    def test_suggest_optimal_settings_screen(self, device_manager):
+    @patch("mss.mss")
+    def test_suggest_optimal_settings_screen(self, mock_mss, device_manager):
         """Test suggesting optimal settings for screen device.
 
         Requirements: 27.9
         """
-        screens = device_manager.enumerate_screens()
-        assert len(screens) > 0
+        # Mock mss
+        mock_sct = MagicMock()
+        mock_sct.monitors = [
+            {},
+            {"width": 1920, "height": 1080},
+        ]
+        mock_mss.return_value.__enter__.return_value = mock_sct
 
-        device_id = screens[0].device_id
-        optimal = device_manager.suggest_optimal_settings(device_id)
+        optimal = device_manager.suggest_optimal_settings("screen_1")
 
         # Should have video settings
         assert optimal.resolution is not None
@@ -197,16 +288,23 @@ class TestDeviceManager:
         # Should suggest 1 FPS for optimal performance
         assert optimal.fps == 1
 
-    def test_suggest_optimal_settings_audio(self, device_manager):
+    @patch("sounddevice.query_devices")
+    def test_suggest_optimal_settings_audio(self, mock_query_devices, device_manager):
         """Test suggesting optimal settings for audio device.
 
         Requirements: 27.9
         """
-        devices = device_manager.enumerate_audio_devices()
-        assert len(devices) > 0
+        # Mock sounddevice
+        mock_query_devices.return_value = [
+            {
+                "name": "Test Microphone",
+                "max_input_channels": 2,
+                "max_output_channels": 0,
+                "default_samplerate": 48000,
+            },
+        ]
 
-        device_id = devices[0].device_id
-        optimal = device_manager.suggest_optimal_settings(device_id)
+        optimal = device_manager.suggest_optimal_settings("audio_0")
 
         # Should have audio settings
         assert optimal.sample_rate is not None
