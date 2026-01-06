@@ -1,5 +1,6 @@
 """Core functionality for Visionmate application."""
 
+from visionmate.core.logging import LogConsoleHandler, get_logger, setup_logging
 from visionmate.core.models import (
     AppSettings,
     AudioChunk,
@@ -38,6 +39,7 @@ __all__ = [
     "DeviceType",
     "InputMode",
     "LocaleSettings",
+    "LogConsoleHandler",
     "OpenAICompatibleModel",
     "OpenAIRealtimeModel",
     "OptimalSettings",
@@ -54,4 +56,6 @@ __all__ = [
     "VLMSettings",
     "WindowGeometry",
     "WindowRegion",
+    "get_logger",
+    "setup_logging",
 ]
