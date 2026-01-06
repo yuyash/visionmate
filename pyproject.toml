@@ -24,6 +24,13 @@ dependencies = [
     "numpy>=2.0.0,<2.3.0",
     # UI dependencies
     "PySide6>=6.10.1",
+    # Web dependencies
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    # VLM dependencies
+    "openai>=1.59.0",
+    # Security dependencies
+    "keyring>=25.5.0",
 ]
 
 [tool.uv]
