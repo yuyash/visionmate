@@ -148,17 +148,16 @@ def main() -> int:
             app.setOrganizationName(APP_NAME)
             app.setApplicationVersion(APP_VERSION)
 
-            # TODO: Create and show main window
-            # from visionmate.desktop.main_window import MainWindow
-            # window = MainWindow()
-            # window.show()
+            # Create and show main window
+            from visionmate.desktop import MainWindow
 
-            logger.warning("Desktop UI not yet implemented")
-            logger.info("Application will exit")
-            return os.EX_SOFTWARE
+            window = MainWindow()
+            window.show()
+
+            logger.info("Desktop UI launched successfully")
 
             # Start event loop
-            # return app.exec()
+            return app.exec()
 
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")

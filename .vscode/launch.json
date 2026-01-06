@@ -2,17 +2,55 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run VisionMate Desktop UI",
+      "name": "Run Visionmate Desktop UI",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/src/visionmate/app.py",
+      "module": "visionmate",
       "python": "${workspaceFolder}/.venv/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "QT_MAC_WANTS_LAYER": "1"
+        "QT_MAC_WANTS_LAYER": "1",
+        "QT_LOGGING_RULES": "*.debug=false;qt.qpa.*=false"
+      },
+      "stopOnEntry": false
+    },
+    {
+      "name": "Run Visionmate Desktop UI (Debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "visionmate",
+      "args": [
+        "--log-level",
+        "DEBUG"
+      ],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "QT_MAC_WANTS_LAYER": "1",
+        "QT_DEBUG_PLUGINS": "1"
+      },
+      "stopOnEntry": false
+    },
+    {
+      "name": "Run Visionmate Server Mode",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "visionmate",
+      "args": [
+        "--server-mode"
+      ],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
       },
       "stopOnEntry": false
     },
