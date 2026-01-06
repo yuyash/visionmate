@@ -31,6 +31,8 @@ dependencies = [
     "openai>=1.59.0",
     # Security dependencies
     "keyring>=25.5.0",
+    # Internationalization dependencies
+    "babel>=2.16.0",
 ]
 
 [tool.uv]
