@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "visionmate"
-version = "0.7.0"
+version = "0.8.0"
 description = "visionmate is a multi-modal assistant that continuously observes UVC video or screen capture and audio and streams into VLM (Vision Language Model), fusing vision inputs with spoken context to understand conversations and surface answers in real time."
 readme = "README.md"
 license = { file = "LICENSE" }
