@@ -6,5 +6,15 @@ and audio devices.
 """
 
 from visionmate.core.capture.device import DeviceManager
+from visionmate.core.capture.video import (
+    ScreenCapture,
+    VideoCaptureInterface,
+    WindowDetector,
+)
 
-__all__ = ["DeviceManager"]
+__all__ = [
+    "DeviceManager",
+    "VideoCaptureInterface",
+    "ScreenCapture",
+    "WindowDetector",
+]
