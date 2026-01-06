@@ -148,6 +148,12 @@ def main() -> int:
             app.setOrganizationName(APP_NAME)
             app.setApplicationVersion(APP_VERSION)
 
+            # Apply global stylesheet for flat design
+            from visionmate.desktop.styles import get_global_stylesheet
+
+            app.setStyleSheet(get_global_stylesheet())
+            logger.debug("Global stylesheet applied")
+
             # Create and show main window
             from visionmate.desktop import MainWindow
 
