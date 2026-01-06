@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/yuyash/visionmate/compare/v0.7.0...v0.8.0) (2026-01-06)
+
+
+### Features
+
+* **core:** implement session control buttons and state machine ([#22](https://github.com/yuyash/visionmate/issues/22)) ([64656e7](https://github.com/yuyash/visionmate/commit/64656e738fa2ae30fd17701419e8e314d13c46aa))
+
 ## [0.7.0](https://github.com/yuyash/visionmate/compare/v0.6.0...v0.7.0) (2026-01-05)
 
 
