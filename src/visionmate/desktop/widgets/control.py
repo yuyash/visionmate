@@ -307,6 +307,16 @@ class ControlContainer(QWidget):
             return self._video_input_widget.get_window_capture_mode()
         return "full_screen"
 
+    def get_fps(self) -> int:
+        """Get the current FPS setting.
+
+        Returns:
+            FPS value (1-240)
+        """
+        if self._video_input_widget is not None:
+            return self._video_input_widget.get_fps()
+        return 1  # Default
+
     def clear_selection(self) -> None:
         """Clear device selection."""
         if self._video_input_widget is not None:

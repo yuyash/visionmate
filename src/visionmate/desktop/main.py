@@ -262,12 +262,15 @@ class MainWindow(QMainWindow):
                 else "full_screen"
             )
 
+            # Get FPS setting
+            fps = self._control_container.get_fps() if self._control_container else 1
+
             # Start capture and preview via preview container
             if self._preview_container is not None:
                 self._preview_container.start_capture_and_preview(
                     source_type=source_type,
                     device_id=device_id,
-                    fps=1,
+                    fps=fps,
                     window_capture_mode=window_capture_mode,
                 )
 

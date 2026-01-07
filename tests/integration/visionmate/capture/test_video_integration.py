@@ -89,16 +89,14 @@ class TestScreenCaptureIntegration:
         for screen in screens:
             print(f"\n✓ Found screen: {screen.name}")
             print(f"  Device ID: {screen.device_id}")
-            print(f"  Resolution: {screen.current_resolution}")
-            print(f"  Native FPS: {screen.native_fps}")
-            print(f"  Supported FPS: {screen.supported_fps[:5]}...")  # First 5
+            print(f"  Resolution: {screen.resolution}")
+            print(f"  FPS: {screen.fps}Hz")
 
             assert screen.device_id.startswith("screen_")
-            assert screen.current_resolution is not None
-            assert screen.current_resolution.width > 0
-            assert screen.current_resolution.height > 0
-            assert screen.native_fps is not None
-            assert screen.native_fps > 0
+            assert screen.resolution is not None
+            assert screen.resolution.width > 0
+            assert screen.resolution.height > 0
+            assert screen.fps > 0
 
     def test_capture_single_frame(self, device_manager, screen_device_id):
         """Test capturing a single frame from real screen."""
@@ -185,12 +183,16 @@ class TestScreenCaptureIntegration:
         """Test capture with window detection enabled."""
         capture = ScreenCapture(device_manager=device_manager)
 
-        # Window detection is always enabled for screen capture
-        assert capture.is_window_detection_enabled()
+        # Window detection is disabled by default
+        assert not capture.is_window_detection_enabled()
 
-        capture.start_capture(screen_device_id, fps=1)
+        # Enable window detection
+        capture.start_capture(screen_device_id, fps=1, enable_window_detection=True)
 
         try:
+            # Window detection should now be enabled
+            assert capture.is_window_detection_enabled()
+
             # Wait for frame
             time.sleep(0.5)
             frame = capture.get_frame()
@@ -344,14 +346,11 @@ class TestScreenCaptureIntegration:
         print(f"  Device ID: {info.device_id}")
         print(f"  Name: {info.name}")
         print(f"  Device Type: {info.device_type}")
-        print(f"  Current Resolution: {info.current_resolution}")
-        print(f"  Native FPS: {info.native_fps}")
-        print(f"  Supported Resolutions: {len(info.supported_resolutions)}")
-        print(f"  Supported FPS: {len(info.supported_fps)}")
+        print(f"  Resolution: {info.resolution}")
+        print(f"  FPS: {info.fps}Hz")
 
         assert info.device_id == screen_device_id
-        assert info.current_resolution is not None
-        assert info.native_fps is not None
+        assert info.resolution is not None
 
     def test_capture_image_quality(self, device_manager, screen_device_id):
         """Test captured image quality and properties."""

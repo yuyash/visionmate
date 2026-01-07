@@ -784,10 +784,10 @@ class PreviewContainer(QWidget):
                     window_title = window_titles[0] if window_titles else "Unknown"
                     return (
                         f"{metadata.name} - Window: {window_title} - "
-                        f"{metadata.current_resolution} @ {metadata.current_fps}fps"
+                        f"{metadata.resolution} @ {metadata.fps}Hz"
                     )
                 else:
-                    return f"{metadata.name} - {metadata.current_resolution}"
+                    return f"{metadata.name} - {metadata.resolution}"
             else:
                 # Regular device
                 metadata = self._capture_manager.get_device_metadata(source_id)
@@ -795,11 +795,10 @@ class PreviewContainer(QWidget):
                 # Check if it's an audio device
                 if metadata.device_type.value == "audio":
                     return (
-                        f"{metadata.name} - "
-                        f"{metadata.current_sample_rate} Hz, {metadata.current_channels} ch"
+                        f"{metadata.name} - {metadata.sample_rate}Hz, {metadata.current_channels}ch"
                     )
                 else:
-                    return f"{metadata.name} - {metadata.current_resolution} @ {metadata.current_fps}fps"
+                    return f"{metadata.name} - {metadata.resolution} @ {metadata.fps}Hz"
 
         except Exception as e:
             logger.error(f"Error getting device info: {e}", exc_info=True)

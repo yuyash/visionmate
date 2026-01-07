@@ -327,17 +327,11 @@ class AudioPreviewWidget(QFrame):
             metadata = self._capture.get_source_info()
             lines = [f"Device: {metadata.name}"]
 
-            if metadata.current_sample_rate:
-                lines.append(f"Sample Rate: {metadata.current_sample_rate} Hz")
+            if metadata.sample_rate:
+                lines.append(f"Sample Rate: {metadata.sample_rate} Hz")
 
             if metadata.current_channels:
                 lines.append(f"Channels: {metadata.current_channels}")
-
-            if metadata.sample_rates:
-                rates = ", ".join(str(r) for r in metadata.sample_rates[:3])
-                if len(metadata.sample_rates) > 3:
-                    rates += "..."
-                lines.append(f"Supported Rates: {rates}")
 
             lines.append(f"Device ID: {self._source_id}")
 

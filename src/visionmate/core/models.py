@@ -146,23 +146,6 @@ class PreviewLayout(Enum):
 
 
 @dataclass
-class OptimalSettings:
-    """Optimal capture settings for a device."""
-
-    # Video settings
-    resolution: Optional[Resolution] = None
-    fps: Optional[int] = None
-    color_format: Optional[str] = None
-
-    # Audio settings
-    sample_rate: Optional[int] = None
-    channels: Optional[int] = None
-
-    # Reasoning
-    reason: str = ""  # Explanation for these settings
-
-
-@dataclass
 class DeviceMetadata:
     """Metadata for a capture device."""
 
@@ -171,17 +154,13 @@ class DeviceMetadata:
     device_type: DeviceType
 
     # Video metadata
-    supported_resolutions: List[Resolution] = field(default_factory=list)
-    supported_fps: List[int] = field(default_factory=list)
-    color_formats: List[str] = field(default_factory=list)
-    current_resolution: Optional[Resolution] = None
-    current_fps: Optional[int] = None
-    native_fps: Optional[int] = None  # Device's native frame rate
+    resolution: Optional[Resolution] = None  # Device's resolution
+    fps: Optional[int] = None  # Device's frame rate
+    color_format: Optional[str] = None  # Color format (e.g., "RGB", "BGR")
 
     # Audio metadata
-    sample_rates: List[int] = field(default_factory=list)
+    sample_rate: Optional[int] = None  # Device's sample rate
     channels: List[int] = field(default_factory=list)
-    current_sample_rate: Optional[int] = None
     current_channels: Optional[int] = None
 
     # Additional info

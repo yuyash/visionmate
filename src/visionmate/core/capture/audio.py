@@ -237,9 +237,10 @@ class DeviceAudioCapture(AudioCaptureInterface):
                 device_id=self._device_id,
                 name=device_info["name"],
                 device_type=DeviceType.AUDIO,
-                sample_rates=[int(device_info["default_samplerate"])],
+                sample_rate=self._sample_rate
+                if self._is_capturing
+                else int(device_info["default_samplerate"]),
                 channels=[device_info["max_input_channels"]],
-                current_sample_rate=self._sample_rate if self._is_capturing else None,
                 current_channels=self._channels if self._is_capturing else None,
                 is_available=True,
             )
@@ -422,9 +423,8 @@ class UVCAudioCapture(AudioCaptureInterface):
             device_id=self._device_id,
             name=f"UVC Audio Device {self._device_id}",
             device_type=DeviceType.AUDIO,
-            sample_rates=[self._sample_rate],
+            sample_rate=self._sample_rate,
             channels=[self._channels],
-            current_sample_rate=self._sample_rate if self._is_capturing else None,
             current_channels=self._channels if self._is_capturing else None,
             is_available=True,
         )
@@ -592,9 +592,8 @@ class RTSPAudioCapture(AudioCaptureInterface):
             device_id=self._device_id,
             name="RTSP Audio Stream",
             device_type=DeviceType.AUDIO,
-            sample_rates=[self._sample_rate],
+            sample_rate=self._sample_rate,
             channels=[self._channels],
-            current_sample_rate=self._sample_rate if self._is_capturing else None,
             current_channels=self._channels if self._is_capturing else None,
             is_available=True,
         )

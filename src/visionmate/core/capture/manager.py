@@ -13,7 +13,7 @@ from visionmate.core.capture.device import DeviceManager
 from visionmate.core.capture.source import VideoSourceManager
 from visionmate.core.capture.stream import StreamManager
 from visionmate.core.capture.video import VideoCaptureInterface
-from visionmate.core.models import DeviceMetadata, OptimalSettings, Resolution, VideoFrame
+from visionmate.core.models import DeviceMetadata, VideoFrame
 
 logger = logging.getLogger(__name__)
 
@@ -101,39 +101,6 @@ class CaptureManager:
         Requirements: 27.1-27.6
         """
         return self._device_manager.get_device_metadata(device_id)
-
-    def validate_settings(
-        self,
-        device_id: str,
-        resolution: Resolution,
-        fps: int,
-    ) -> bool:
-        """Validate if settings are supported by device.
-
-        Args:
-            device_id: Device identifier
-            resolution: Resolution object
-            fps: Frame rate
-
-        Returns:
-            True if settings are supported, False otherwise
-
-        Requirements: 27.8
-        """
-        return self._device_manager.validate_settings(device_id, resolution, fps)
-
-    def suggest_optimal_settings(self, device_id: str) -> OptimalSettings:
-        """Suggest optimal capture settings for device.
-
-        Args:
-            device_id: Device identifier
-
-        Returns:
-            OptimalSettings object with suggested settings
-
-        Requirements: 27.9
-        """
-        return self._device_manager.suggest_optimal_settings(device_id)
 
     # ========================================================================
     # Video Source Management (delegated to VideoSourceManager)

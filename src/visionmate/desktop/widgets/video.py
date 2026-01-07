@@ -335,12 +335,10 @@ class VideoPreviewWidget(QWidget):
 
             lines = [f"<b>{metadata.name}</b>"]
 
-            if metadata.current_resolution:
-                lines.append(f"Resolution: {metadata.current_resolution}")
-            if metadata.current_fps:
-                lines.append(f"FPS: {metadata.current_fps}")
-            if metadata.native_fps:
-                lines.append(f"Native FPS: {metadata.native_fps}")
+            if metadata.resolution:
+                lines.append(f"Resolution: {metadata.resolution}")
+            if metadata.fps:
+                lines.append(f"FPS: {metadata.fps}Hz")
 
             # Check if this is a window-specific capture
             if "_window_" in self._source_id:

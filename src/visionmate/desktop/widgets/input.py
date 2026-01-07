@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QRadioButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -130,6 +131,22 @@ class VideoInputWidget(QWidget):
 
         group_layout.addWidget(self._window_mode_widget)
         self._window_mode_widget.hide()  # Hidden until screen capture is selected
+
+        # FPS setting (capture rate)
+        fps_layout = QHBoxLayout()
+        fps_label = QLabel("Capture FPS:")
+        fps_label.setToolTip("How often to capture frames (1 = once per second)")
+
+        self._fps_spinbox = QSpinBox()
+        self._fps_spinbox.setMinimum(1)
+        self._fps_spinbox.setMaximum(240)
+        self._fps_spinbox.setValue(1)  # Default: 1 FPS
+        self._fps_spinbox.setSuffix(" fps")
+        self._fps_spinbox.setToolTip("Frame capture rate (1-240 fps)")
+
+        fps_layout.addWidget(fps_label)
+        fps_layout.addWidget(self._fps_spinbox, stretch=1)
+        group_layout.addLayout(fps_layout)
 
         # Device list (full width, global stylesheet applied)
         self._device_list = QListWidget()
@@ -377,15 +394,10 @@ class VideoInputWidget(QWidget):
 
         if metadata.device_type.value != "audio":
             # Video device metadata
-            if metadata.current_resolution:
-                lines.append(f"Resolution: {metadata.current_resolution}")
-            if metadata.current_fps:
-                lines.append(f"FPS: {metadata.current_fps}")
-            if metadata.native_fps:
-                lines.append(f"Native FPS: {metadata.native_fps}")
-            if metadata.supported_resolutions:
-                res_count = len(metadata.supported_resolutions)
-                lines.append(f"Supported Resolutions: {res_count}")
+            if metadata.resolution:
+                lines.append(f"Resolution: {metadata.resolution}")
+            if metadata.fps:
+                lines.append(f"FPS: {metadata.fps}Hz")
 
         return "\n".join(lines)
 
@@ -396,6 +408,14 @@ class VideoInputWidget(QWidget):
             Source type string ("screen", "uvc", or "rtsp")
         """
         return self._source_type_combo.currentData()
+
+    def get_fps(self) -> int:
+        """Get the current FPS setting.
+
+        Returns:
+            FPS value (1-240)
+        """
+        return self._fps_spinbox.value()
 
     def get_window_capture_mode(self) -> str:
         """Get the current window capture mode.
@@ -559,15 +579,10 @@ class AudioInputWidget(QWidget):
         lines = [metadata.name]
 
         # Audio device metadata
-        if metadata.current_sample_rate:
-            lines.append(f"Sample Rate: {metadata.current_sample_rate} Hz")
+        if metadata.sample_rate:
+            lines.append(f"Sample Rate: {metadata.sample_rate} Hz")
         if metadata.current_channels:
             lines.append(f"Channels: {metadata.current_channels}")
-        if metadata.sample_rates:
-            rates = ", ".join(str(r) for r in metadata.sample_rates[:3])
-            if len(metadata.sample_rates) > 3:
-                rates += "..."
-            lines.append(f"Supported Rates: {rates}")
 
         return "\n".join(lines)
 

@@ -174,9 +174,9 @@ class VideoStream(StreamInterface):
         """
         try:
             metadata = self._capture.get_device_metadata()
-            return metadata.current_fps or 1
+            return metadata.fps or 0
         except Exception:
-            return 1
+            return 0
 
     def get_resolution(self):
         """Get the resolution of the video stream.
@@ -186,7 +186,7 @@ class VideoStream(StreamInterface):
         """
         try:
             metadata = self._capture.get_device_metadata()
-            return metadata.current_resolution
+            return metadata.resolution
         except Exception:
             return None
 
@@ -296,7 +296,7 @@ class AudioStream(StreamInterface):
         """
         try:
             metadata = self._capture.get_device_metadata()
-            return metadata.current_sample_rate or 16000
+            return metadata.sample_rate or 16000
         except Exception:
             return 16000
 
