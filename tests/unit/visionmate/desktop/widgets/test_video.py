@@ -8,7 +8,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from visionmate.core.models import Resolution, VideoFrame, VideoSourceType
-from visionmate.desktop.widgets.video_preview import VideoPreviewWidget
+from visionmate.desktop.widgets import VideoPreviewWidget
 
 
 @pytest.fixture

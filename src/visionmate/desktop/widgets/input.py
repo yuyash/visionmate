@@ -10,10 +10,12 @@ from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -137,6 +139,43 @@ class VideoInputWidget(QWidget):
         self._device_list.itemSelectionChanged.connect(self._on_device_selected)
         group_layout.addWidget(self._device_list)
 
+        # RTSP URL input (only visible when RTSP is selected)
+        self._rtsp_input_widget = QWidget()
+        rtsp_input_layout = QHBoxLayout(self._rtsp_input_widget)
+        rtsp_input_layout.setContentsMargins(0, 5, 0, 5)
+        rtsp_input_layout.setSpacing(5)
+
+        self._rtsp_url_input = QLineEdit()
+        self._rtsp_url_input.setPlaceholderText("rtsp://...")
+        self._rtsp_url_input.returnPressed.connect(self._on_add_rtsp_clicked)
+
+        self._add_rtsp_button = QPushButton("Add")
+        self._add_rtsp_button.clicked.connect(self._on_add_rtsp_clicked)
+
+        rtsp_input_layout.addWidget(QLabel("RTSP URL:"))
+        rtsp_input_layout.addWidget(self._rtsp_url_input, stretch=1)
+        rtsp_input_layout.addWidget(self._add_rtsp_button)
+
+        group_layout.addWidget(self._rtsp_input_widget)
+        self._rtsp_input_widget.hide()  # Hidden until RTSP is selected
+
+        # Window detection toggle (only for UVC and RTSP)
+        self._window_detection_widget = QWidget()
+        window_detection_layout = QVBoxLayout(self._window_detection_widget)
+        window_detection_layout.setContentsMargins(0, 5, 0, 5)
+        window_detection_layout.setSpacing(5)
+
+        self._window_detection_checkbox = QCheckBox("Enable Window Detection")
+        self._window_detection_checkbox.setToolTip(
+            "Use computer vision to detect and crop to window regions in the video"
+        )
+        self._window_detection_checkbox.stateChanged.connect(self._on_window_detection_changed)
+
+        window_detection_layout.addWidget(self._window_detection_checkbox)
+
+        group_layout.addWidget(self._window_detection_widget)
+        self._window_detection_widget.hide()  # Hidden until UVC or RTSP is selected
+
         # Button to select windows (only visible in selected windows mode)
         # Placed after device list for natural flow
         self._select_windows_button = QPushButton("Select Windows...")
@@ -161,17 +200,36 @@ class VideoInputWidget(QWidget):
         # Clear device list
         self._device_list.clear()
 
-        # Show/hide window mode widget based on source type
-        # Only show for screen capture
+        # Show/hide widgets based on source type
         if source_type == "screen":
+            # Screen capture: show window mode, hide RTSP input and window detection
             self._window_mode_widget.show()
+            self._rtsp_input_widget.hide()
+            self._window_detection_widget.hide()
+            self._device_list.setEnabled(True)
+        elif source_type == "uvc":
+            # UVC: hide window mode and RTSP input, show window detection
+            self._window_mode_widget.hide()
+            self._rtsp_input_widget.hide()
+            self._window_detection_widget.show()
+            self._device_list.setEnabled(True)
+        elif source_type == "rtsp":
+            # RTSP: hide window mode, show RTSP input and window detection
+            self._window_mode_widget.hide()
+            self._rtsp_input_widget.show()
+            self._window_detection_widget.show()
             self._device_list.setEnabled(True)
         elif source_type == "":
             # Empty selection - hide everything
             self._window_mode_widget.hide()
+            self._rtsp_input_widget.hide()
+            self._window_detection_widget.hide()
             self._device_list.setEnabled(False)
         else:
+            # Unknown source type - hide everything
             self._window_mode_widget.hide()
+            self._rtsp_input_widget.hide()
+            self._window_detection_widget.hide()
             self._device_list.setEnabled(True)
 
         # Emit signal to notify parent
@@ -192,6 +250,52 @@ class VideoInputWidget(QWidget):
         enabled = state == 2  # Qt.CheckState.Checked
         logger.debug(f"Window detection changed: {enabled}")
         self.window_detection_changed.emit(enabled)
+
+    def _on_add_rtsp_clicked(self) -> None:
+        """Handle Add RTSP button click."""
+        rtsp_url = self._rtsp_url_input.text().strip()
+
+        if not rtsp_url:
+            logger.warning("Empty RTSP URL")
+            return
+
+        if not rtsp_url.startswith("rtsp://"):
+            logger.warning(f"Invalid RTSP URL format: {rtsp_url}")
+            # Show error to user
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(self, "Invalid URL", "RTSP URL must start with 'rtsp://'")
+            return
+
+        logger.debug(f"Adding RTSP stream: {rtsp_url}")
+
+        # Create a device ID for the RTSP stream
+        # Format: "rtsp_<url>"
+        device_id = f"rtsp_{rtsp_url}"
+
+        # Add to device list
+        from visionmate.core.models import DeviceMetadata, DeviceType
+
+        metadata = DeviceMetadata(
+            device_id=device_id,
+            name=f"RTSP: {rtsp_url}",
+            device_type=DeviceType.RTSP,
+            is_available=True,
+        )
+
+        # Add to list
+        item = QListWidgetItem(metadata.name)
+        item.setData(1, metadata.device_id)
+        item.setToolTip(rtsp_url)
+        self._device_list.addItem(item)
+
+        # Select the new item
+        item.setSelected(True)
+
+        # Clear input
+        self._rtsp_url_input.clear()
+
+        logger.info(f"Added RTSP stream to device list: {rtsp_url}")
 
     def _on_capture_mode_changed(self) -> None:
         """Handle capture mode radio button change."""

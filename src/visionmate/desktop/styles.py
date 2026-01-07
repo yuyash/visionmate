@@ -38,7 +38,7 @@ QComboBox {
     border: 1px solid palette(mid);
     border-radius: 3px;
     padding: 5px;
-    background-color: white;
+    background-color: palette(base);
     min-height: 20px;
 }
 
@@ -58,7 +58,7 @@ QComboBox::down-arrow {
 }
 
 QComboBox QAbstractItemView {
-    background-color: white;
+    background-color: palette(base);
     selection-background-color: palette(highlight);
     selection-color: palette(highlighted-text);
     outline: none;
