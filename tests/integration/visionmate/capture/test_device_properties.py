@@ -27,7 +27,7 @@ from visionmate.core.models import DeviceType, Resolution
 @st.composite
 def real_screen_device_strategy(draw, device_manager):
     """Generate strategy from actual available screens."""
-    screens = device_manager.enumerate_screens()
+    screens = device_manager.get_screens()
     if not screens:
         pytest.skip("No screen devices available on this system")
     return draw(st.sampled_from(screens))
@@ -36,7 +36,7 @@ def real_screen_device_strategy(draw, device_manager):
 @st.composite
 def real_uvc_device_strategy(draw, device_manager):
     """Generate strategy from actual available UVC devices."""
-    devices = device_manager.enumerate_uvc_devices()
+    devices = device_manager.get_uvc_devices()
     if not devices:
         pytest.skip("No UVC devices available on this system")
     return draw(st.sampled_from(devices))
@@ -45,7 +45,7 @@ def real_uvc_device_strategy(draw, device_manager):
 @st.composite
 def real_audio_device_strategy(draw, device_manager):
     """Generate strategy from actual available audio devices."""
-    devices = device_manager.enumerate_audio_devices()
+    devices = device_manager.get_audio_devices()
     if not devices:
         pytest.skip("No audio devices available on this system")
     return draw(st.sampled_from(devices))
@@ -222,9 +222,9 @@ class TestDeviceMetadataPropertiesIntegration:
         """
         # Get all available devices
         all_devices = []
-        all_devices.extend(device_manager.enumerate_screens())
-        all_devices.extend(device_manager.enumerate_uvc_devices())
-        all_devices.extend(device_manager.enumerate_audio_devices())
+        all_devices.extend(device_manager.get_screens())
+        all_devices.extend(device_manager.get_uvc_devices())
+        all_devices.extend(device_manager.get_audio_devices())
 
         if not all_devices:
             pytest.skip("No devices available on this system")
@@ -263,8 +263,8 @@ class TestDeviceMetadataPropertiesIntegration:
         """
         # Get all video devices (screens and UVC)
         video_devices = []
-        video_devices.extend(device_manager.enumerate_screens())
-        video_devices.extend(device_manager.enumerate_uvc_devices())
+        video_devices.extend(device_manager.get_screens())
+        video_devices.extend(device_manager.get_uvc_devices())
 
         if not video_devices:
             pytest.skip("No video devices available on this system")
@@ -312,9 +312,9 @@ class TestDeviceMetadataPropertiesIntegration:
         """
         # Get all available devices
         all_devices = []
-        all_devices.extend(device_manager.enumerate_screens())
-        all_devices.extend(device_manager.enumerate_uvc_devices())
-        all_devices.extend(device_manager.enumerate_audio_devices())
+        all_devices.extend(device_manager.get_screens())
+        all_devices.extend(device_manager.get_uvc_devices())
+        all_devices.extend(device_manager.get_audio_devices())
 
         if not all_devices:
             pytest.skip("No devices available on this system")
@@ -365,8 +365,8 @@ class TestDeviceMetadataPropertiesIntegration:
         **Validates: Requirements 27.1-27.6**
         """
         # Enumerate devices twice
-        screens1 = device_manager.enumerate_screens()
-        screens2 = device_manager.enumerate_screens()
+        screens1 = device_manager.get_screens()
+        screens2 = device_manager.get_screens()
 
         # Property: Device count should be consistent
         assert len(screens1) == len(
@@ -379,8 +379,8 @@ class TestDeviceMetadataPropertiesIntegration:
         assert screen_ids1 == screen_ids2, "Screen IDs should be consistent across enumerations"
 
         # Do the same for audio devices
-        audio1 = device_manager.enumerate_audio_devices()
-        audio2 = device_manager.enumerate_audio_devices()
+        audio1 = device_manager.get_audio_devices()
+        audio2 = device_manager.get_audio_devices()
 
         assert len(audio1) == len(audio2), "Audio device count should be consistent"
 

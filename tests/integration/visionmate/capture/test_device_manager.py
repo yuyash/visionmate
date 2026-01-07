@@ -19,14 +19,14 @@ class TestDeviceManagerIntegration:
         """Create a DeviceManager instance for testing."""
         return DeviceManager()
 
-    def test_enumerate_screens_real(self, device_manager):
-        """Test screen enumeration with real hardware.
+    def test_get_screens_real(self, device_manager):
+        """Test getting screens with real hardware.
 
         This test scans actual screens connected to the host system.
 
         Requirements: 1.7
         """
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
 
         # Should find at least one screen
         assert len(screens) > 0, "No screens found on host system"
@@ -48,15 +48,15 @@ class TestDeviceManagerIntegration:
             assert screen.current_resolution.width > 0
             assert screen.current_resolution.height > 0
 
-    def test_enumerate_uvc_devices_real(self, device_manager):
-        """Test UVC device enumeration with real hardware.
+    def test_get_uvc_devices_real(self, device_manager):
+        """Test getting UVC devices with real hardware.
 
         This test scans actual UVC devices connected to the host system.
         Note: This test may find 0 devices if no UVC devices are connected.
 
         Requirements: 1.8
         """
-        devices = device_manager.enumerate_uvc_devices()
+        devices = device_manager.get_uvc_devices()
 
         print(f"\nFound {len(devices)} UVC device(s):")
 
@@ -75,14 +75,14 @@ class TestDeviceManagerIntegration:
             assert device.current_resolution.width > 0
             assert device.current_resolution.height > 0
 
-    def test_enumerate_audio_devices_real(self, device_manager):
-        """Test audio device enumeration with real hardware.
+    def test_get_audio_devices_real(self, device_manager):
+        """Test getting audio devices with real hardware.
 
         This test scans actual audio devices on the host system.
 
         Requirements: 2.7
         """
-        devices = device_manager.enumerate_audio_devices()
+        devices = device_manager.get_audio_devices()
 
         # Should find at least one audio device
         assert len(devices) > 0, "No audio devices found on host system"
@@ -108,7 +108,7 @@ class TestDeviceManagerIntegration:
 
         Requirements: 27.1-27.6
         """
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
         assert len(screens) > 0, "No screens found on host system"
 
         # Get metadata for first screen
@@ -132,7 +132,7 @@ class TestDeviceManagerIntegration:
 
         Requirements: 27.1-27.6
         """
-        devices = device_manager.enumerate_audio_devices()
+        devices = device_manager.get_audio_devices()
         assert len(devices) > 0, "No audio devices found on host system"
 
         # Get metadata for first audio device
@@ -155,7 +155,7 @@ class TestDeviceManagerIntegration:
 
         Requirements: 27.8
         """
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
         assert len(screens) > 0, "No screens found on host system"
 
         device_id = screens[0].device_id
@@ -175,7 +175,7 @@ class TestDeviceManagerIntegration:
 
         Requirements: 27.9
         """
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
         assert len(screens) > 0, "No screens found on host system"
 
         device_id = screens[0].device_id
@@ -201,7 +201,7 @@ class TestDeviceManagerIntegration:
 
         Requirements: 27.9
         """
-        devices = device_manager.enumerate_audio_devices()
+        devices = device_manager.get_audio_devices()
         assert len(devices) > 0, "No audio devices found on host system"
 
         device_id = devices[0].device_id

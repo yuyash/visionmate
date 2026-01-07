@@ -64,27 +64,27 @@ class TestCaptureManager:
         assert coordinator.get_video_source_count() == 0
         assert len(coordinator) == 0
 
-    def test_enumerate_screens(self):
-        """Test screen enumeration."""
+    def test_get_screens(self):
+        """Test getting screens."""
         coordinator = CaptureManager()
-        screens = coordinator.enumerate_screens()
+        screens = coordinator.get_screens()
 
         # Should return at least one screen
         assert len(screens) >= 1
         assert all(screen.device_id.startswith("screen_") for screen in screens)
 
-    def test_enumerate_uvc_devices(self):
-        """Test UVC device enumeration."""
+    def test_get_uvc_devices(self):
+        """Test getting UVC devices."""
         coordinator = CaptureManager()
-        devices = coordinator.enumerate_uvc_devices()
+        devices = coordinator.get_uvc_devices()
 
         # May return 0 or more devices depending on system
         assert isinstance(devices, list)
 
-    def test_enumerate_audio_devices(self):
-        """Test audio device enumeration."""
+    def test_get_audio_devices(self):
+        """Test getting audio devices."""
         coordinator = CaptureManager()
-        devices = coordinator.enumerate_audio_devices()
+        devices = coordinator.get_audio_devices()
 
         # Should return at least one audio device
         assert len(devices) >= 1
@@ -92,7 +92,7 @@ class TestCaptureManager:
     def test_get_device_metadata(self):
         """Test getting device metadata."""
         coordinator = CaptureManager()
-        screens = coordinator.enumerate_screens()
+        screens = coordinator.get_screens()
 
         if screens:
             device_id = screens[0].device_id

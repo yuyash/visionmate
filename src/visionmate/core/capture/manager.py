@@ -13,7 +13,7 @@ from visionmate.core.capture.device import DeviceManager
 from visionmate.core.capture.source import VideoSourceManager
 from visionmate.core.capture.stream import StreamManager
 from visionmate.core.capture.video import VideoCaptureInterface
-from visionmate.core.models import DeviceMetadata, OptimalSettings, VideoFrame
+from visionmate.core.models import DeviceMetadata, OptimalSettings, Resolution, VideoFrame
 
 logger = logging.getLogger(__name__)
 
@@ -59,35 +59,35 @@ class CaptureManager:
     # Device Management (delegated to DeviceManager)
     # ========================================================================
 
-    def enumerate_screens(self) -> list[DeviceMetadata]:
-        """Enumerate available screens.
+    def get_screens(self) -> list[DeviceMetadata]:
+        """Get available screens.
 
         Returns:
             List of DeviceMetadata objects for each available screen
 
         Requirements: 1.7
         """
-        return self._device_manager.enumerate_screens()
+        return self._device_manager.get_screens()
 
-    def enumerate_uvc_devices(self) -> list[DeviceMetadata]:
-        """Enumerate UVC video devices.
+    def get_uvc_devices(self) -> list[DeviceMetadata]:
+        """Get UVC video devices.
 
         Returns:
             List of DeviceMetadata objects for each available UVC device
 
         Requirements: 1.8
         """
-        return self._device_manager.enumerate_uvc_devices()
+        return self._device_manager.get_uvc_devices()
 
-    def enumerate_audio_devices(self) -> list[DeviceMetadata]:
-        """Enumerate audio input devices.
+    def get_audio_devices(self) -> list[DeviceMetadata]:
+        """Get audio input devices.
 
         Returns:
             List of DeviceMetadata objects for each available audio device
 
         Requirements: 2.8
         """
-        return self._device_manager.enumerate_audio_devices()
+        return self._device_manager.get_audio_devices()
 
     def get_device_metadata(self, device_id: str) -> DeviceMetadata:
         """Get detailed metadata for a device.
@@ -105,14 +105,14 @@ class CaptureManager:
     def validate_settings(
         self,
         device_id: str,
-        resolution: tuple[int, int],
+        resolution: Resolution,
         fps: int,
     ) -> bool:
         """Validate if settings are supported by device.
 
         Args:
             device_id: Device identifier
-            resolution: Resolution as (width, height)
+            resolution: Resolution object
             fps: Frame rate
 
         Returns:

@@ -158,15 +158,15 @@ class ControlContainer(QWidget):
 
         try:
             # Scan screens
-            self._device_cache["screen"] = self._capture_manager.enumerate_screens()
+            self._device_cache["screen"] = self._capture_manager.get_screens()
             logger.info(f"Cached {len(self._device_cache['screen'])} screen device(s)")
 
             # Scan UVC devices
-            self._device_cache["uvc"] = self._capture_manager.enumerate_uvc_devices()
+            self._device_cache["uvc"] = self._capture_manager.get_uvc_devices()
             logger.info(f"Cached {len(self._device_cache['uvc'])} UVC device(s)")
 
             # Scan audio devices
-            self._device_cache["audio"] = self._capture_manager.enumerate_audio_devices()
+            self._device_cache["audio"] = self._capture_manager.get_audio_devices()
             logger.info(f"Cached {len(self._device_cache['audio'])} audio device(s)")
 
             # Update audio device list
@@ -224,9 +224,9 @@ class ControlContainer(QWidget):
         try:
             # Re-scan devices based on source type
             if source_type == "screen":
-                devices = self._capture_manager.enumerate_screens()
+                devices = self._capture_manager.get_screens()
             elif source_type == "uvc":
-                devices = self._capture_manager.enumerate_uvc_devices()
+                devices = self._capture_manager.get_uvc_devices()
             elif source_type == "rtsp":
                 devices = []
             else:
@@ -343,7 +343,7 @@ class ControlContainer(QWidget):
 
         try:
             # Re-scan audio devices
-            devices = self._capture_manager.enumerate_audio_devices()
+            devices = self._capture_manager.get_audio_devices()
 
             # Update cache
             self._device_cache["audio"] = devices

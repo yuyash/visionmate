@@ -75,14 +75,14 @@ class TestScreenCaptureIntegration:
     @pytest.fixture
     def screen_device_id(self, device_manager):
         """Get the first available screen device ID."""
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
         if not screens:
             pytest.skip("No screen devices available")
         return screens[0].device_id
 
-    def test_enumerate_screens(self, device_manager):
+    def test_get_screens(self, device_manager):
         """Test enumerating real screen devices."""
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
 
         assert len(screens) > 0, "At least one screen should be available"
 

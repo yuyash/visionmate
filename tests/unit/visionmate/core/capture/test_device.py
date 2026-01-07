@@ -21,8 +21,8 @@ class TestDeviceManager:
         return DeviceManager()
 
     @patch("mss.mss")
-    def test_enumerate_screens(self, mock_mss, device_manager):
-        """Test screen enumeration with mocked mss.
+    def test_get_screens(self, mock_mss, device_manager):
+        """Test getting screens with mocked mss.
 
         Requirements: 1.7
         """
@@ -35,7 +35,7 @@ class TestDeviceManager:
         ]
         mock_mss.return_value.__enter__.return_value = mock_sct
 
-        screens = device_manager.enumerate_screens()
+        screens = device_manager.get_screens()
 
         # Should find 2 screens (excluding virtual monitor 0)
         assert len(screens) == 2
@@ -52,8 +52,8 @@ class TestDeviceManager:
         assert screens[1].current_resolution == Resolution(2560, 1440)
 
     @patch("cv2.VideoCapture")
-    def test_enumerate_uvc_devices(self, mock_video_capture, device_manager):
-        """Test UVC device enumeration with mocked OpenCV.
+    def test_get_uvc_devices(self, mock_video_capture, device_manager):
+        """Test getting UVC devices with mocked OpenCV.
 
         Requirements: 1.8
         """
@@ -74,7 +74,7 @@ class TestDeviceManager:
 
         mock_video_capture.side_effect = mock_capture_factory
 
-        devices = device_manager.enumerate_uvc_devices()
+        devices = device_manager.get_uvc_devices()
 
         # Should find 1 device
         assert len(devices) == 1
@@ -85,8 +85,8 @@ class TestDeviceManager:
         assert devices[0].is_available is True
 
     @patch("sounddevice.query_devices")
-    def test_enumerate_audio_devices(self, mock_query_devices, device_manager):
-        """Test audio device enumeration with mocked sounddevice.
+    def test_get_audio_devices(self, mock_query_devices, device_manager):
+        """Test getting audio devices with mocked sounddevice.
 
         Requirements: 2.7
         """
@@ -112,7 +112,7 @@ class TestDeviceManager:
             },
         ]
 
-        devices = device_manager.enumerate_audio_devices()
+        devices = device_manager.get_audio_devices()
 
         # Should find 2 input devices (excluding output-only device)
         assert len(devices) == 2

@@ -40,8 +40,8 @@ def test_screen_capture():
 
     device_manager = DeviceManager()
 
-    # Enumerate screens
-    screens = device_manager.enumerate_screens()
+    # Get screens
+    screens = device_manager.get_screens()
     logger.info(f"Found {len(screens)} screen(s)")
 
     if not screens:
@@ -116,8 +116,8 @@ def test_uvc_capture():
 
     device_manager = DeviceManager()
 
-    # Enumerate UVC devices
-    devices = device_manager.enumerate_uvc_devices()
+    # Get UVC devices
+    devices = device_manager.get_uvc_devices()
     logger.info(f"Found {len(devices)} UVC device(s)")
 
     if not devices:
@@ -169,8 +169,8 @@ def test_audio_capture():
 
     device_manager = DeviceManager()
 
-    # Enumerate audio devices
-    devices = device_manager.enumerate_audio_devices()
+    # Get audio devices
+    devices = device_manager.get_audio_devices()
     logger.info(f"Found {len(devices)} audio device(s)")
 
     if not devices:
@@ -226,8 +226,8 @@ def test_audio_mixing():
 
     device_manager = DeviceManager()
 
-    # Enumerate audio devices
-    devices = device_manager.enumerate_audio_devices()
+    # Get audio devices
+    devices = device_manager.get_audio_devices()
     logger.info(f"Found {len(devices)} audio device(s)")
 
     if len(devices) < 1:
@@ -295,9 +295,9 @@ def test_multiple_video_sources():
 
     device_manager = DeviceManager()
 
-    # Enumerate screens and UVC devices
-    screens = device_manager.enumerate_screens()
-    uvc_devices = device_manager.enumerate_uvc_devices()
+    # Get screens and UVC devices
+    screens = device_manager.get_screens()
+    uvc_devices = device_manager.get_uvc_devices()
 
     logger.info(f"Found {len(screens)} screen(s) and {len(uvc_devices)} UVC device(s)")
 

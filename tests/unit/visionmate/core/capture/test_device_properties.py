@@ -114,8 +114,8 @@ class TestDeviceMetadataProperties:
 
             device_manager = DeviceManager()
 
-            # Enumerate screens
-            screens = device_manager.enumerate_screens()
+            # Get screens
+            screens = device_manager.get_screens()
 
             # Property: At least one screen should be found
             assert len(screens) > 0, "Should enumerate at least one screen"
@@ -174,8 +174,8 @@ class TestDeviceMetadataProperties:
 
             device_manager = DeviceManager()
 
-            # Enumerate UVC devices
-            devices = device_manager.enumerate_uvc_devices()
+            # Get UVC devices
+            devices = device_manager.get_uvc_devices()
 
             # Property: If device is opened, it should have complete metadata
             if device_data["is_opened"]:
@@ -222,8 +222,8 @@ class TestDeviceMetadataProperties:
 
             device_manager = DeviceManager()
 
-            # Enumerate audio devices
-            devices = device_manager.enumerate_audio_devices()
+            # Get audio devices
+            devices = device_manager.get_audio_devices()
 
             # Property: At least one audio device should be found
             assert len(devices) > 0, "Should enumerate at least one audio device"
