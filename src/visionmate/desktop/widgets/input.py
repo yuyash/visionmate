@@ -434,3 +434,164 @@ class VideoInputWidget(QWidget):
         self._source_type_combo.setEnabled(enabled)
         self._device_list.setEnabled(enabled)
         self._refresh_button.setEnabled(enabled)
+
+
+class AudioInputWidget(QWidget):
+    """Widget for configuring audio input sources.
+
+    Provides controls for:
+    - Audio device list with refresh button
+    - Device selection
+
+    Requirements: 12.1
+    """
+
+    # Signal emitted when a device is selected
+    device_selected = Signal(str)  # device_id
+
+    # Signal emitted when refresh is requested
+    refresh_requested = Signal()
+
+    # Signal emitted when selection changes
+    selection_changed = Signal(str)  # device_id (empty string if none selected)
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        """Initialize the AudioInputWidget.
+
+        Args:
+            parent: Optional parent widget
+        """
+        super().__init__(parent)
+        logger.debug("Initializing AudioInputWidget")
+
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        """Setup the UI components."""
+        # Create main layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create group box
+        group_box = QGroupBox("Audio Input")
+        group_box.setFlat(True)
+        group_layout = QVBoxLayout(group_box)
+
+        # Device list header with refresh button
+        header_layout = QHBoxLayout()
+        device_label = QLabel("Audio Device:")
+
+        # Refresh button
+        self._refresh_button = QPushButton("↻")
+        self._refresh_button.setFixedSize(40, 30)
+        self._refresh_button.setToolTip("Refresh audio device list")
+        self._refresh_button.clicked.connect(self._on_refresh_clicked)
+
+        header_layout.addWidget(device_label)
+        header_layout.addStretch()
+        header_layout.addWidget(self._refresh_button)
+        group_layout.addLayout(header_layout)
+
+        # Device list
+        self._device_list = QListWidget()
+        self._device_list.setFrameShape(QListWidget.Shape.NoFrame)
+        self._device_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self._device_list.itemSelectionChanged.connect(self._on_device_selected)
+        group_layout.addWidget(self._device_list)
+
+        # Add group box to main layout
+        layout.addWidget(group_box)
+
+        logger.debug("AudioInputWidget UI setup complete")
+
+    def _on_refresh_clicked(self) -> None:
+        """Handle refresh button click."""
+        logger.debug("Audio device refresh requested")
+        self.refresh_requested.emit()
+
+    def _on_device_selected(self) -> None:
+        """Handle device selection change."""
+        selected_items = self._device_list.selectedItems()
+
+        if selected_items:
+            device_id = selected_items[0].data(1)
+            logger.debug(f"Audio device selected: {device_id}")
+            self.device_selected.emit(device_id)
+            self.selection_changed.emit(device_id)
+        else:
+            logger.debug("Audio device selection cleared")
+            self.selection_changed.emit("")
+
+    def update_device_list(self, devices: list) -> None:
+        """Update the device list with new devices.
+
+        Args:
+            devices: List of DeviceMetadata objects
+        """
+        logger.debug(f"Updating audio device list with {len(devices)} devices")
+
+        self._device_list.clear()
+
+        for device in devices:
+            if not isinstance(device, DeviceMetadata):
+                logger.warning(f"Invalid device object: {device}")
+                continue
+
+            # Create list item
+            item = QListWidgetItem(device.name)
+            item.setData(1, device.device_id)  # Store device ID in user role
+
+            # Set tooltip with device metadata
+            tooltip = self._format_device_tooltip(device)
+            item.setToolTip(tooltip)
+
+            self._device_list.addItem(item)
+
+    def _format_device_tooltip(self, metadata: DeviceMetadata) -> str:
+        """Format device metadata as tooltip text.
+
+        Args:
+            metadata: DeviceMetadata object
+
+        Returns:
+            Formatted tooltip string
+        """
+        lines = [metadata.name]
+
+        # Audio device metadata
+        if metadata.current_sample_rate:
+            lines.append(f"Sample Rate: {metadata.current_sample_rate} Hz")
+        if metadata.current_channels:
+            lines.append(f"Channels: {metadata.current_channels}")
+        if metadata.sample_rates:
+            rates = ", ".join(str(r) for r in metadata.sample_rates[:3])
+            if len(metadata.sample_rates) > 3:
+                rates += "..."
+            lines.append(f"Supported Rates: {rates}")
+
+        return "\n".join(lines)
+
+    def get_selected_device_id(self) -> Optional[str]:
+        """Get the currently selected device ID.
+
+        Returns:
+            Device ID string, or None if no device is selected
+        """
+        selected_items = self._device_list.selectedItems()
+        if selected_items:
+            return selected_items[0].data(1)
+        return None
+
+    def clear_selection(self) -> None:
+        """Clear device selection in the device list."""
+        self._device_list.clearSelection()
+        logger.debug("Cleared audio device list selection")
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable or disable the widget.
+
+        Args:
+            enabled: Whether to enable the widget
+        """
+        self._device_list.setEnabled(enabled)
+        self._refresh_button.setEnabled(enabled)

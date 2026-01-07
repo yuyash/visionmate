@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from visionmate.core.capture.manager import CaptureManager
 from visionmate.core.models import DeviceMetadata
-from visionmate.desktop.widgets.input import VideoInputWidget
+from visionmate.desktop.widgets.input import AudioInputWidget, VideoInputWidget
 from visionmate.desktop.widgets.mode import InputModeWidget
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,8 @@ class ControlContainer(QWidget):
     device_selected = Signal(str, str)  # source_type, device_id
     selection_changed = Signal(list)  # selected_device_ids
     window_capture_mode_changed = Signal(str, list)  # mode, selected_titles
+    audio_device_selected = Signal(str)  # device_id
+    audio_refresh_requested = Signal()  # no args
 
     def __init__(
         self,
@@ -62,11 +64,13 @@ class ControlContainer(QWidget):
             "screen": [],
             "uvc": [],
             "rtsp": [],
+            "audio": [],
         }
 
         # Widgets
         self._input_mode_widget: Optional[InputModeWidget] = None
         self._video_input_widget: Optional[VideoInputWidget] = None
+        self._audio_input_widget: Optional[AudioInputWidget] = None
 
         self._setup_ui()
         self._connect_signals()
@@ -107,6 +111,10 @@ class ControlContainer(QWidget):
         self._video_input_widget = VideoInputWidget()
         controls_layout.addWidget(self._video_input_widget)
 
+        # Add Audio Input widget
+        self._audio_input_widget = AudioInputWidget()
+        controls_layout.addWidget(self._audio_input_widget)
+
         # Add stretch to push controls to top
         controls_layout.addStretch()
 
@@ -132,6 +140,11 @@ class ControlContainer(QWidget):
                 self._on_window_capture_mode_changed
             )
 
+        if self._audio_input_widget is not None:
+            # Connect audio widget signals
+            self._audio_input_widget.device_selected.connect(self._on_audio_device_selected)
+            self._audio_input_widget.refresh_requested.connect(self._on_audio_refresh_requested)
+
         logger.debug("ControlContainer signals connected")
 
     def _scan_all_devices(self) -> None:
@@ -146,6 +159,14 @@ class ControlContainer(QWidget):
             # Scan UVC devices
             self._device_cache["uvc"] = self._capture_manager.enumerate_uvc_devices()
             logger.info(f"Cached {len(self._device_cache['uvc'])} UVC device(s)")
+
+            # Scan audio devices
+            self._device_cache["audio"] = self._capture_manager.enumerate_audio_devices()
+            logger.info(f"Cached {len(self._device_cache['audio'])} audio device(s)")
+
+            # Update audio device list
+            if self._audio_input_widget is not None:
+                self._audio_input_widget.update_device_list(self._device_cache["audio"])
 
             # RTSP doesn't have enumerable devices
             self._device_cache["rtsp"] = []
@@ -290,3 +311,52 @@ class ControlContainer(QWidget):
             Device cache dictionary
         """
         return self._device_cache.copy()
+
+    def _on_audio_device_selected(self, device_id: str) -> None:
+        """Handle audio device selection.
+
+        Args:
+            device_id: Audio device identifier
+
+        Requirements: 12.1
+        """
+        logger.info(f"Audio device selected: {device_id}")
+
+        # Forward signal
+        self.audio_device_selected.emit(device_id)
+
+    def _on_audio_refresh_requested(self) -> None:
+        """Handle audio device refresh request.
+
+        Requirements: 12.1
+        """
+        logger.info("Refreshing audio devices")
+
+        try:
+            # Re-scan audio devices
+            devices = self._capture_manager.enumerate_audio_devices()
+
+            # Update cache
+            self._device_cache["audio"] = devices
+
+            # Update the device list
+            if self._audio_input_widget is not None:
+                self._audio_input_widget.update_device_list(devices)
+
+            logger.info(f"Refreshed {len(devices)} audio device(s)")
+
+            # Forward signal
+            self.audio_refresh_requested.emit()
+
+        except Exception as e:
+            logger.error(f"Error refreshing audio device list: {e}", exc_info=True)
+
+    def get_selected_audio_device_id(self) -> Optional[str]:
+        """Get the currently selected audio device ID.
+
+        Returns:
+            Audio device ID, or None if no device is selected
+        """
+        if self._audio_input_widget is not None:
+            return self._audio_input_widget.get_selected_device_id()
+        return None
