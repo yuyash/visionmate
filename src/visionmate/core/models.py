@@ -203,6 +203,8 @@ class WindowRegion:
     width: int
     height: int
     confidence: float  # Detection confidence (0.0-1.0)
+    title: str = ""  # Window title
+    window_id: Optional[int] = None  # Platform-specific window ID
     area: int = field(init=False)  # Region area in pixels
 
     def __post_init__(self):

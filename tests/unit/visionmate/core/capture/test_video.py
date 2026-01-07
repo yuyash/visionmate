@@ -68,7 +68,7 @@ class TestScreenCapture:
         """Test ScreenCapture initialization."""
         capture = ScreenCapture()
         assert not capture.is_capturing()
-        assert capture.is_window_detection_enabled()
+        assert not capture.is_window_detection_enabled()  # Default: disabled
 
     def test_init_with_device_manager(self):
         """Test ScreenCapture initialization with device manager."""
@@ -193,16 +193,19 @@ class TestScreenCapture:
         mock_dm.get_device_metadata.assert_called_once_with("screen_1")
 
     def test_set_window_detection(self):
-        """Test set_window_detection (always enabled for screen capture)."""
+        """Test set_window_detection can be enabled or disabled."""
         capture = ScreenCapture()
 
-        # Try to disable (should remain enabled)
-        capture.set_window_detection(False)
-        assert capture.is_window_detection_enabled()
+        # Initially should be False (not capturing yet)
+        assert not capture.is_window_detection_enabled()
 
-        # Enable (should remain enabled)
+        # Enable window detection
         capture.set_window_detection(True)
         assert capture.is_window_detection_enabled()
+
+        # Disable window detection
+        capture.set_window_detection(False)
+        assert not capture.is_window_detection_enabled()
 
     def test_fps_clamping(self):
         """Test FPS is clamped to valid range."""

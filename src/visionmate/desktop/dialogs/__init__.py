@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from visionmate.desktop.dialogs.window_selector import WindowSelectorDialog
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,3 +93,6 @@ class AboutDialog(QDialog):
         layout.addWidget(close_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         logger.debug("AboutDialog initialized successfully")
+
+
+__all__ = ["AboutDialog", "WindowSelectorDialog"]

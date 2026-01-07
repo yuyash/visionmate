@@ -7,8 +7,10 @@ input mode selection, video input configuration, and audio input configuration.
 
 from visionmate.desktop.widgets.input_mode import InputModeWidget
 from visionmate.desktop.widgets.video_input import VideoInputWidget
+from visionmate.desktop.widgets.video_preview import VideoPreviewWidget
 
 __all__ = [
     "InputModeWidget",
     "VideoInputWidget",
+    "VideoPreviewWidget",
 ]

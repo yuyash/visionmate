@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -49,6 +50,12 @@ class VideoInputWidget(QWidget):
     # Signal emitted when selection changes (for multiple selection)
     selection_changed = Signal(list)  # List of selected device_ids
 
+    # Signal emitted when window detection mode changes
+    window_detection_changed = Signal(bool)  # enabled
+
+    # Signal emitted when window capture mode changes
+    window_capture_mode_changed = Signal(str, list)  # (mode, selected_titles)
+
     def __init__(self, parent: Optional[QWidget] = None):
         """Initialize the VideoInputWidget.
 
@@ -77,9 +84,12 @@ class VideoInputWidget(QWidget):
         # Global stylesheet handles label styling
 
         self._source_type_combo = QComboBox()
+        self._source_type_combo.addItem("-- Select --", "")  # Shorter default text
         self._source_type_combo.addItem("Screen Capture", "screen")
         self._source_type_combo.addItem("UVC Device", "uvc")
         self._source_type_combo.addItem("RTSP Stream", "rtsp")
+        # Set minimum width for dropdown list to prevent truncation
+        self._source_type_combo.view().setMinimumWidth(200)
         # Global stylesheet handles combo box styling
         self._source_type_combo.currentIndexChanged.connect(self._on_source_type_changed)
 
@@ -94,6 +104,31 @@ class VideoInputWidget(QWidget):
         source_type_layout.addWidget(self._refresh_button)
         group_layout.addLayout(source_type_layout)
 
+        # Window capture mode (only for screen capture)
+        self._window_mode_widget = QWidget()
+        window_mode_layout = QVBoxLayout(self._window_mode_widget)
+        window_mode_layout.setContentsMargins(0, 5, 0, 5)
+        window_mode_layout.setSpacing(5)
+
+        mode_label = QLabel("Capture Mode:")
+        window_mode_layout.addWidget(mode_label)
+
+        self._full_screen_radio = QRadioButton("Full Screen")
+        self._full_screen_radio.setChecked(True)  # Default
+        self._full_screen_radio.toggled.connect(self._on_capture_mode_changed)
+        window_mode_layout.addWidget(self._full_screen_radio)
+
+        self._active_window_radio = QRadioButton("Active Window Only")
+        self._active_window_radio.toggled.connect(self._on_capture_mode_changed)
+        window_mode_layout.addWidget(self._active_window_radio)
+
+        self._selected_windows_radio = QRadioButton("Selected Windows")
+        self._selected_windows_radio.toggled.connect(self._on_capture_mode_changed)
+        window_mode_layout.addWidget(self._selected_windows_radio)
+
+        group_layout.addWidget(self._window_mode_widget)
+        self._window_mode_widget.hide()  # Hidden until screen capture is selected
+
         # Device list (full width, global stylesheet applied)
         self._device_list = QListWidget()
         self._device_list.setFrameShape(QListWidget.Shape.NoFrame)
@@ -101,6 +136,13 @@ class VideoInputWidget(QWidget):
         # Global stylesheet handles list widget styling
         self._device_list.itemSelectionChanged.connect(self._on_device_selected)
         group_layout.addWidget(self._device_list)
+
+        # Button to select windows (only visible in selected windows mode)
+        # Placed after device list for natural flow
+        self._select_windows_button = QPushButton("Select Windows...")
+        self._select_windows_button.clicked.connect(self._on_select_windows_clicked)
+        self._select_windows_button.hide()  # Hidden by default
+        group_layout.addWidget(self._select_windows_button)
 
         # Add group box to main layout
         layout.addWidget(group_box)
@@ -119,6 +161,19 @@ class VideoInputWidget(QWidget):
         # Clear device list
         self._device_list.clear()
 
+        # Show/hide window mode widget based on source type
+        # Only show for screen capture
+        if source_type == "screen":
+            self._window_mode_widget.show()
+            self._device_list.setEnabled(True)
+        elif source_type == "":
+            # Empty selection - hide everything
+            self._window_mode_widget.hide()
+            self._device_list.setEnabled(False)
+        else:
+            self._window_mode_widget.hide()
+            self._device_list.setEnabled(True)
+
         # Emit signal to notify parent
         self.source_type_changed.emit(source_type)
 
@@ -127,6 +182,41 @@ class VideoInputWidget(QWidget):
         source_type = self._source_type_combo.currentData()
         logger.debug(f"Refresh requested for source type: {source_type}")
         self.refresh_requested.emit(source_type)
+
+    def _on_window_detection_changed(self, state: int) -> None:
+        """Handle window detection checkbox state change.
+
+        Args:
+            state: Qt.CheckState value
+        """
+        enabled = state == 2  # Qt.CheckState.Checked
+        logger.debug(f"Window detection changed: {enabled}")
+        self.window_detection_changed.emit(enabled)
+
+    def _on_capture_mode_changed(self) -> None:
+        """Handle capture mode radio button change."""
+        if self._full_screen_radio.isChecked():
+            mode = "full_screen"
+            self._select_windows_button.hide()
+        elif self._active_window_radio.isChecked():
+            mode = "active_window"
+            self._select_windows_button.hide()
+        elif self._selected_windows_radio.isChecked():
+            mode = "selected_windows"
+            self._select_windows_button.show()
+        else:
+            return
+
+        logger.debug(f"Capture mode changed: {mode}")
+        # Emit with empty list (will be updated when windows are selected via button)
+        self.window_capture_mode_changed.emit(mode, [])
+
+    def _on_select_windows_clicked(self) -> None:
+        """Handle select windows button click."""
+        logger.debug("Select windows button clicked")
+        # Emit signal to parent to show window selector dialog
+        # Use a special signal value to indicate button was clicked
+        self.window_capture_mode_changed.emit("show_selector", [])
 
     def _on_device_selected(self) -> None:
         """Handle device selection change."""
@@ -202,6 +292,34 @@ class VideoInputWidget(QWidget):
             Source type string ("screen", "uvc", or "rtsp")
         """
         return self._source_type_combo.currentData()
+
+    def get_window_capture_mode(self) -> str:
+        """Get the current window capture mode.
+
+        Returns:
+            Mode string ("full_screen", "active_window", or "selected_windows")
+        """
+        if self._full_screen_radio.isChecked():
+            return "full_screen"
+        elif self._active_window_radio.isChecked():
+            return "active_window"
+        elif self._selected_windows_radio.isChecked():
+            return "selected_windows"
+        return "full_screen"
+
+    def is_window_detection_enabled(self) -> bool:
+        """Get the current window detection state.
+
+        Returns:
+            True if window detection is enabled, False otherwise
+        """
+        # Window detection is enabled for active_window and selected_windows modes
+        return not self._full_screen_radio.isChecked()
+
+    def clear_selection(self) -> None:
+        """Clear all device selections in the device list."""
+        self._device_list.clearSelection()
+        logger.debug("Cleared device list selection")
 
     def set_enabled(self, enabled: bool) -> None:
         """Enable or disable the widget.
