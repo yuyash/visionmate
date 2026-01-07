@@ -201,21 +201,39 @@ class MainWindow(QMainWindow):
         if self._control_container:
             # Connect control container signals
             self._control_container.source_type_changed.connect(self._on_source_type_changed)
-            self._control_container.refresh_requested.connect(self._on_refresh_requested)
             self._control_container.device_selected.connect(self._on_device_selected)
             self._control_container.selection_changed.connect(self._on_selection_changed)
             self._control_container.window_capture_mode_changed.connect(
                 self._on_window_capture_mode_changed
             )
+            self._control_container.audio_device_selected.connect(self._on_audio_device_selected)
+            # Connect status message signal
+            self._control_container.status_message.connect(self._update_status_bar)
+
+            # Connect input mode change signal
+            if self._control_container._input_mode_widget is not None:
+                self._control_container._input_mode_widget.mode_changed.connect(
+                    self._on_input_mode_changed
+                )
 
         if self._preview_container is not None:
             # Connect preview container signals
             self._preview_container.preview_close_requested.connect(
                 self._on_preview_close_requested
             )
-            self._preview_container.preview_info_requested.connect(self._on_preview_info_requested)
+            # Connect status message signal
+            self._preview_container.status_message.connect(self._update_status_bar)
 
         logger.debug("Signals connected")
+
+    def _update_status_bar(self, message: str, timeout: int = 0) -> None:
+        """Update status bar with a message.
+
+        Args:
+            message: Status message to display
+            timeout: Timeout in milliseconds (0 = permanent)
+        """
+        self.statusBar().showMessage(message, timeout)
 
     def _on_source_type_changed(self, source_type: str) -> None:
         """Handle source type change.
@@ -224,21 +242,6 @@ class MainWindow(QMainWindow):
             source_type: Type of source ("screen", "uvc", "rtsp")
         """
         logger.debug(f"Source type changed to: {source_type}")
-        # Status update handled by control container
-
-    def _on_refresh_requested(self, source_type: str) -> None:
-        """Handle device refresh request.
-
-        Args:
-            source_type: Type of source to refresh
-        """
-        logger.info(f"Devices refreshed for source type: {source_type}")
-
-        # Get device count from control container cache
-        if self._control_container:
-            device_cache = self._control_container.get_device_cache()
-            devices = device_cache.get(source_type, [])
-            self.statusBar().showMessage(f"Found {len(devices)} {source_type} device(s)", 3000)
 
     def _on_device_selected(self, source_type: str, device_id: str) -> None:
         """Handle device selection.
@@ -252,10 +255,6 @@ class MainWindow(QMainWindow):
         logger.info(f"Device selected: {device_id} (type: {source_type})")
 
         try:
-            # Get device metadata
-            metadata = self._capture_manager.get_device_metadata(device_id)
-            self.statusBar().showMessage(f"Selected: {metadata.name}", 3000)
-
             # Get window capture mode from control container
             window_capture_mode = (
                 self._control_container.get_window_capture_mode()
@@ -263,21 +262,14 @@ class MainWindow(QMainWindow):
                 else "full_screen"
             )
 
-            logger.debug(f"Window capture mode: {window_capture_mode}")
-            logger.debug(f"Preview container exists: {self._preview_container is not None}")
-
             # Start capture and preview via preview container
             if self._preview_container is not None:
-                logger.debug("Calling start_capture_and_preview...")
                 self._preview_container.start_capture_and_preview(
                     source_type=source_type,
                     device_id=device_id,
                     fps=1,
                     window_capture_mode=window_capture_mode,
                 )
-                logger.debug("start_capture_and_preview returned")
-            else:
-                logger.error("Preview container is None!")
 
         except Exception as e:
             logger.error(f"Error handling device selection: {e}", exc_info=True)
@@ -293,15 +285,7 @@ class MainWindow(QMainWindow):
             return
 
         # Delegate to preview container
-        count = self._preview_container.handle_selection_change(selected_device_ids)
-
-        # Update status bar
-        if count == 0:
-            self.statusBar().showMessage("No devices selected", 2000)
-        elif count == 1:
-            pass  # Status already updated by _on_device_selected
-        else:
-            self.statusBar().showMessage(f"{count} devices selected", 3000)
+        self._preview_container.handle_selection_change(selected_device_ids)
 
     def _on_window_capture_mode_changed(self, mode: str, selected_titles: list[str]) -> None:
         """Handle window capture mode change.
@@ -314,50 +298,19 @@ class MainWindow(QMainWindow):
             return
 
         # Delegate to preview container
-        action, message = self._preview_container.handle_window_capture_mode_change(
-            mode, selected_titles
-        )
+        action = self._preview_container.handle_window_capture_mode_change(mode, selected_titles)
 
         # Handle action
         if action == "show_selector":
             self._show_window_selector()
-        elif message:
-            self.statusBar().showMessage(message, 3000)
 
     def _show_window_selector(self) -> None:
         """Show window selector dialog for selected windows mode."""
         if self._preview_container is None:
             return
 
-        # Delegate dialog display to preview container
-        selected_titles = self._preview_container.show_window_selector_dialog(self)
-
-        if selected_titles is None:
-            # Dialog cancelled or error
-            if not self._preview_container.get_selected_screen_devices():
-                self.statusBar().showMessage("Please select a screen device first", 3000)
-            return
-
-        if not selected_titles:
-            self.statusBar().showMessage("No windows selected", 3000)
-            return
-
-        # Get base device ID
-        selected_screen_devices = self._preview_container.get_selected_screen_devices()
-        if not selected_screen_devices:
-            return
-
-        base_device_id = next(iter(selected_screen_devices))
-
-        # Create window captures via preview container
-        success_count = self._preview_container.create_window_captures(
-            base_device_id, selected_titles
-        )
-
-        if success_count > 0:
-            self.statusBar().showMessage(f"Capturing {success_count} selected window(s)", 3000)
-        else:
-            self.statusBar().showMessage("Failed to create window captures", 3000)
+        # Delegate to preview container
+        self._preview_container.show_window_selector_and_create_captures(self)
 
     def _on_preview_close_requested(self, source_id: str) -> None:
         """Handle preview close request.
@@ -378,19 +331,47 @@ class MainWindow(QMainWindow):
             if self._control_container:
                 self._control_container.clear_selection()
 
-        self.statusBar().showMessage(f"Preview closed for {source_id}", 3000)
-
-    def _on_preview_info_requested(self, source_id: str) -> None:
-        """Handle preview info request.
+    def _on_input_mode_changed(self, mode) -> None:
+        """Handle input mode change.
 
         Args:
-            source_id: Source identifier
+            mode: InputMode enum value
 
-        Requirements: 11.8, 11.10
+        Requirements: 10.6
         """
+        from visionmate.core.models import InputMode
+
+        logger.info(f"Input mode changed to: {mode.value}")
+
         if self._preview_container is None:
             return
 
-        # Delegate to preview container
-        info_text = self._preview_container.get_device_info_text(source_id)
-        self.statusBar().showMessage(info_text, 5000)
+        # Stop and remove previews based on mode
+        if mode == InputMode.VIDEO_ONLY:
+            # Remove audio previews
+            self._preview_container.remove_audio_previews()
+            logger.debug("Removed audio previews for VIDEO_ONLY mode")
+        elif mode == InputMode.AUDIO_ONLY:
+            # Remove video previews
+            self._preview_container.remove_video_previews()
+            logger.debug("Removed video previews for AUDIO_ONLY mode")
+        # VIDEO_AUDIO mode: keep all previews
+
+    def _on_audio_device_selected(self, device_id: str) -> None:
+        """Handle audio device selection.
+
+        Args:
+            device_id: Audio device identifier
+
+        Requirements: 12.1
+        """
+        logger.info(f"Audio device selected: {device_id}")
+
+        try:
+            # Start audio capture and preview via preview container
+            if self._preview_container is not None:
+                self._preview_container.start_audio_capture_and_preview(device_id)
+
+        except Exception as e:
+            logger.error(f"Error handling audio device selection: {e}", exc_info=True)
+            self.statusBar().showMessage(f"Error: {e}", 5000)

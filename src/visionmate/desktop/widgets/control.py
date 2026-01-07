@@ -42,6 +42,7 @@ class ControlContainer(QWidget):
     window_capture_mode_changed = Signal(str, list)  # mode, selected_titles
     audio_device_selected = Signal(str)  # device_id
     audio_refresh_requested = Signal()  # no args
+    status_message = Signal(str, int)  # message, timeout_ms
 
     def __init__(
         self,
@@ -130,6 +131,10 @@ class ControlContainer(QWidget):
 
     def _connect_signals(self) -> None:
         """Connect widget signals to handlers."""
+        if self._input_mode_widget is not None:
+            # Connect input mode change signal
+            self._input_mode_widget.mode_changed.connect(self._on_input_mode_changed)
+
         if self._video_input_widget is not None:
             # Connect and forward signals
             self._video_input_widget.source_type_changed.connect(self._on_source_type_changed)
@@ -237,11 +242,15 @@ class ControlContainer(QWidget):
 
             logger.info(f"Refreshed {len(devices)} {source_type} device(s)")
 
+            # Emit status message
+            self.status_message.emit(f"Found {len(devices)} {source_type} device(s)", 3000)
+
             # Forward signal
             self.refresh_requested.emit(source_type)
 
         except Exception as e:
             logger.error(f"Error refreshing device list: {e}", exc_info=True)
+            self.status_message.emit(f"Error: {e}", 5000)
 
     def _on_device_selected(self, source_type: str, device_id: str) -> None:
         """Handle device selection.
@@ -360,3 +369,37 @@ class ControlContainer(QWidget):
         if self._audio_input_widget is not None:
             return self._audio_input_widget.get_selected_device_id()
         return None
+
+    def _on_input_mode_changed(self, mode) -> None:
+        """Handle input mode change.
+
+        Args:
+            mode: InputMode enum value
+
+        Requirements: 10.6
+        """
+        from visionmate.core.models import InputMode
+
+        logger.info(f"Input mode changed to: {mode.value}")
+
+        # Show/hide widgets based on input mode
+        if mode == InputMode.VIDEO_AUDIO:
+            # Show both video and audio controls
+            if self._video_input_widget is not None:
+                self._video_input_widget.show()
+            if self._audio_input_widget is not None:
+                self._audio_input_widget.show()
+        elif mode == InputMode.VIDEO_ONLY:
+            # Show only video controls
+            if self._video_input_widget is not None:
+                self._video_input_widget.show()
+            if self._audio_input_widget is not None:
+                self._audio_input_widget.hide()
+        elif mode == InputMode.AUDIO_ONLY:
+            # Show only audio controls
+            if self._video_input_widget is not None:
+                self._video_input_widget.hide()
+            if self._audio_input_widget is not None:
+                self._audio_input_widget.show()
+
+        logger.debug(f"Updated widget visibility for mode: {mode.value}")

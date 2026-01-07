@@ -12,10 +12,8 @@ from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import Qt, Signal
 
 if TYPE_CHECKING:
-    from visionmate.desktop.widgets import VideoPreviewWidget
+    from visionmate.desktop.widgets import AudioPreviewWidget, VideoPreviewWidget
 from PySide6.QtWidgets import (
-    QGridLayout,
-    QHBoxLayout,
     QLabel,
     QVBoxLayout,
     QWidget,
@@ -56,6 +54,9 @@ class PreviewContainer(QWidget):
     # Signal emitted when preview info is requested
     preview_info_requested = Signal(str)  # source_id
 
+    # Signal emitted for status bar updates
+    status_message = Signal(str, int)  # message, timeout_ms
+
     def __init__(
         self,
         capture_manager: CaptureManager,
@@ -72,8 +73,15 @@ class PreviewContainer(QWidget):
 
         self._capture_manager = capture_manager
         self._layout_mode = PreviewLayout.VERTICAL
-        self._previews: dict[str, "VideoPreviewWidget"] = {}  # type: ignore
+        self._video_previews: dict[str, "VideoPreviewWidget"] = {}  # type: ignore
+        self._audio_previews: dict[str, "AudioPreviewWidget"] = {}  # type: ignore
         self._placeholder: Optional[QLabel] = None
+
+        # Separate containers for video and audio (initialized in _setup_ui)
+        self._video_container: QWidget
+        self._audio_container: QWidget
+        self._video_layout: QVBoxLayout
+        self._audio_layout: QVBoxLayout
 
         # Track selected screen devices for window selection
         self._selected_screen_devices: set[str] = set()
@@ -82,10 +90,26 @@ class PreviewContainer(QWidget):
 
     def _setup_ui(self) -> None:
         """Setup the UI components."""
-        # Create main layout (will be replaced based on mode)
+        # Create main layout (vertical: video on top, audio on bottom)
         self._main_layout = QVBoxLayout(self)
         self._main_layout.setContentsMargins(0, 0, 0, 0)
         self._main_layout.setSpacing(10)
+
+        # Create video container
+        self._video_container = QWidget()
+        self._video_layout = QVBoxLayout(self._video_container)
+        self._video_layout.setContentsMargins(0, 0, 0, 0)
+        self._video_layout.setSpacing(10)
+
+        # Create audio container
+        self._audio_container = QWidget()
+        self._audio_layout = QVBoxLayout(self._audio_container)
+        self._audio_layout.setContentsMargins(0, 0, 0, 0)
+        self._audio_layout.setSpacing(10)
+
+        # Add containers to main layout
+        self._main_layout.addWidget(self._video_container, stretch=3)  # Video gets more space
+        self._main_layout.addWidget(self._audio_container, stretch=1)  # Audio gets less space
 
         # Create placeholder
         self._placeholder = QLabel("No video sources\n\nSelect a video source to begin")
@@ -99,12 +123,15 @@ class PreviewContainer(QWidget):
             }
             """
         )
-        self._main_layout.addWidget(self._placeholder)
+        self._video_layout.addWidget(self._placeholder)
+
+        # Initially hide audio container
+        self._audio_container.hide()
 
         logger.debug("PreviewContainer UI setup complete")
 
     def add_preview(self, source_id: str, capture: VideoCaptureInterface) -> None:
-        """Add a preview widget for a video source.
+        """Add a video preview widget for a video source.
 
         Args:
             source_id: Unique identifier for the source
@@ -112,8 +139,8 @@ class PreviewContainer(QWidget):
 
         Requirements: 11.5, 11.6
         """
-        if source_id in self._previews:
-            logger.warning(f"Preview already exists for source: {source_id}")
+        if source_id in self._video_previews:
+            logger.warning(f"Video preview already exists for source: {source_id}")
             return
 
         # Import here to avoid circular dependency
@@ -128,65 +155,170 @@ class PreviewContainer(QWidget):
 
         # Connect preview signals
         preview.close_requested.connect(self._on_preview_close_requested)
-        preview.info_requested.connect(self._on_preview_info_requested)
 
         # Store preview
-        self._previews[source_id] = preview
+        self._video_previews[source_id] = preview
 
         # Hide placeholder if this is the first preview
-        if len(self._previews) == 1 and self._placeholder:
+        if len(self._video_previews) == 1 and self._placeholder:
             self._placeholder.hide()
 
-        # Add to layout
-        self._add_preview_to_layout(preview)
+        # Add to video layout
+        self._video_layout.addWidget(preview)
 
-        # Update layout distribution
-        self._update_layout_distribution()
+        # Show video container
+        self._video_container.show()
 
-        logger.info(f"Added preview for source: {source_id} (total: {len(self._previews)})")
+        # Update container visibility
+        self.update_container_visibility()
+
+        logger.info(
+            f"Added video preview for source: {source_id} "
+            f"(total: {len(self._video_previews)} video, {len(self._audio_previews)} audio)"
+        )
+
+        # Emit status message
+        try:
+            metadata = self._capture_manager.get_device_metadata(source_id)
+            self.status_message.emit(f"Preview added: {metadata.name}", 3000)
+        except Exception:
+            pass
+
+    def add_audio_preview(self, source_id: str, capture) -> None:
+        """Add an audio preview widget for an audio source.
+
+        Args:
+            source_id: Unique identifier for the source
+            capture: AudioCaptureInterface instance
+
+        Requirements: 12.1
+        """
+        if source_id in self._audio_previews:
+            logger.warning(f"Audio preview already exists for source: {source_id}")
+            return
+
+        # Import here to avoid circular dependency
+        from visionmate.desktop.widgets.audio import AudioPreviewWidget
+
+        # Create preview widget
+        preview = AudioPreviewWidget(
+            source_id=source_id,
+            capture=capture,
+            parent=self,
+        )
+
+        # Connect preview signals
+        preview.close_requested.connect(self._on_preview_close_requested)
+
+        # Store preview
+        self._audio_previews[source_id] = preview
+
+        # Add to audio layout
+        self._audio_layout.addWidget(preview)
+
+        # Show audio container
+        self._audio_container.show()
+
+        # Update container visibility
+        self.update_container_visibility()
+
+        logger.info(
+            f"Added audio preview for source: {source_id} "
+            f"(total: {len(self._video_previews)} video, {len(self._audio_previews)} audio)"
+        )
+
+        # Emit status message
+        try:
+            metadata = self._capture_manager.get_device_metadata(source_id)
+            self.status_message.emit(f"Audio preview added: {metadata.name}", 3000)
+        except Exception:
+            pass
 
     def remove_preview(self, source_id: str) -> None:
-        """Remove a preview widget for a video source.
+        """Remove a preview widget (video or audio).
 
         Args:
             source_id: Source identifier
 
         Requirements: 11.9
         """
-        if source_id not in self._previews:
+        # Try video preview first
+        if source_id in self._video_previews:
+            preview = self._video_previews[source_id]
+
+            # Cleanup preview
+            preview.cleanup()
+
+            # Remove from layout
+            self._video_layout.removeWidget(preview)
+
+            # Delete widget
+            preview.deleteLater()
+
+            # Remove from dict
+            del self._video_previews[source_id]
+
+            # Hide video container if no more video previews
+            if len(self._video_previews) == 0:
+                self._video_container.hide()
+                # Show placeholder if no audio previews either
+                if len(self._audio_previews) == 0 and self._placeholder:
+                    self._placeholder.show()
+
+            # Update container visibility
+            self.update_container_visibility()
+
+            logger.info(
+                f"Removed video preview for source: {source_id} "
+                f"(remaining: {len(self._video_previews)} video, {len(self._audio_previews)} audio)"
+            )
+
+        # Try audio preview
+        elif source_id in self._audio_previews:
+            preview = self._audio_previews[source_id]
+
+            # Cleanup preview
+            preview.cleanup()
+
+            # Remove from layout
+            self._audio_layout.removeWidget(preview)
+
+            # Delete widget
+            preview.deleteLater()
+
+            # Remove from dict
+            del self._audio_previews[source_id]
+
+            # Hide audio container if no more audio previews
+            if len(self._audio_previews) == 0:
+                self._audio_container.hide()
+
+            # Update container visibility
+            self.update_container_visibility()
+
+            logger.info(
+                f"Removed audio preview for source: {source_id} "
+                f"(remaining: {len(self._video_previews)} video, {len(self._audio_previews)} audio)"
+            )
+
+        else:
             logger.warning(f"Preview not found for source: {source_id}")
             return
 
-        preview = self._previews[source_id]
-
-        # Cleanup preview
-        preview.cleanup()
-
-        # Remove from layout
-        self._main_layout.removeWidget(preview)
-
-        # Delete widget
-        preview.deleteLater()
-
-        # Remove from dict
-        del self._previews[source_id]
-
-        # Show placeholder if no more previews
-        if len(self._previews) == 0 and self._placeholder:
-            self._placeholder.show()
-        else:
-            # Update layout distribution
-            self._update_layout_distribution()
-
-        logger.info(f"Removed preview for source: {source_id} (remaining: {len(self._previews)})")
+        # Emit status message
+        self.status_message.emit(f"Preview closed for {source_id}", 3000)
 
     def clear_previews(self) -> None:
         """Remove all preview widgets from the container.
 
         Requirements: 11.9
         """
-        # Remove all previews
-        for source_id in list(self._previews.keys()):
+        # Remove all video previews
+        for source_id in list(self._video_previews.keys()):
+            self.remove_preview(source_id)
+
+        # Remove all audio previews
+        for source_id in list(self._audio_previews.keys()):
             self.remove_preview(source_id)
 
         logger.info("Cleared all previews from container")
@@ -200,25 +332,19 @@ class PreviewContainer(QWidget):
         logger.info(f"Close requested for preview: {source_id}")
         self.preview_close_requested.emit(source_id)
 
-    def _on_preview_info_requested(self, source_id: str) -> None:
-        """Handle preview info request.
-
-        Args:
-            source_id: Source identifier
-        """
-        logger.info(f"Info requested for preview: {source_id}")
-        self.preview_info_requested.emit(source_id)
-
     def get_preview_count(self) -> int:
         """Get the number of previews in the container.
 
         Returns:
-            Number of previews
+            Number of previews (video + audio)
         """
-        return len(self._previews)
+        return len(self._video_previews) + len(self._audio_previews)
 
     def set_layout_mode(self, mode: PreviewLayout) -> None:
         """Set the layout mode for previews.
+
+        Note: With separated video/audio containers, layout mode is less relevant.
+        This method is kept for compatibility but doesn't change the layout structure.
 
         Args:
             mode: Layout mode (HORIZONTAL, VERTICAL, GRID)
@@ -228,12 +354,8 @@ class PreviewContainer(QWidget):
         if self._layout_mode == mode:
             return
 
-        logger.info(f"Changing layout mode from {self._layout_mode.value} to {mode.value}")
-
+        logger.info(f"Layout mode changed from {self._layout_mode.value} to {mode.value}")
         self._layout_mode = mode
-
-        # Rebuild layout with new mode
-        self._rebuild_layout()
 
         # Emit signal
         self.layout_changed.emit(mode.value)
@@ -245,104 +367,6 @@ class PreviewContainer(QWidget):
             Current layout mode
         """
         return self._layout_mode
-
-    def _add_preview_to_layout(self, preview: QWidget) -> None:  # type: ignore
-        """Add a preview widget to the current layout.
-
-        Args:
-            preview: Preview widget to add
-        """
-        if self._layout_mode == PreviewLayout.GRID:
-            # Grid layout requires special handling
-            self._rebuild_layout()
-        else:
-            # For horizontal and vertical, just add to layout
-            self._main_layout.addWidget(preview)
-
-    def _rebuild_layout(self) -> None:
-        """Rebuild the layout with current mode and previews."""
-        # Remove all widgets from current layout
-        while self._main_layout.count():
-            item = self._main_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-
-        # Delete old layout
-        old_layout = self._main_layout
-        if old_layout:
-            # Transfer ownership to None to allow deletion
-            QWidget().setLayout(old_layout)
-
-        # Create new layout based on mode
-        if self._layout_mode == PreviewLayout.HORIZONTAL:
-            self._main_layout = QHBoxLayout(self)
-            self._main_layout.setContentsMargins(0, 0, 0, 0)
-            self._main_layout.setSpacing(10)
-
-            # Add all previews
-            for preview in self._previews.values():
-                self._main_layout.addWidget(preview)
-
-        elif self._layout_mode == PreviewLayout.VERTICAL:
-            self._main_layout = QVBoxLayout(self)
-            self._main_layout.setContentsMargins(0, 0, 0, 0)
-            self._main_layout.setSpacing(10)
-
-            # Add all previews
-            for preview in self._previews.values():
-                self._main_layout.addWidget(preview)
-
-        elif self._layout_mode == PreviewLayout.GRID:
-            self._main_layout = QGridLayout(self)
-            self._main_layout.setContentsMargins(0, 0, 0, 0)
-            self._main_layout.setSpacing(10)
-
-            # Calculate grid dimensions
-            count = len(self._previews)
-            if count == 0:
-                cols = 1
-            elif count <= 2:
-                cols = 2
-            elif count <= 4:
-                cols = 2
-            elif count <= 6:
-                cols = 3
-            else:
-                cols = 3
-
-            # Add previews to grid
-            for i, preview in enumerate(self._previews.values()):
-                row = i // cols
-                col = i % cols
-                self._main_layout.addWidget(preview, row, col)
-
-        # Add placeholder if no previews
-        if len(self._previews) == 0 and self._placeholder:
-            self._main_layout.addWidget(self._placeholder)
-            self._placeholder.show()
-        elif self._placeholder:
-            self._placeholder.hide()
-
-        # Update layout distribution
-        self._update_layout_distribution()
-
-        logger.debug(f"Rebuilt layout in {self._layout_mode.value} mode")
-
-    def _update_layout_distribution(self) -> None:
-        """Update layout to distribute space equally among previews."""
-        if len(self._previews) == 0:
-            return
-
-        # Set equal stretch for all preview widgets
-        if isinstance(self._main_layout, (QHBoxLayout, QVBoxLayout)):
-            for i in range(self._main_layout.count()):
-                item = self._main_layout.itemAt(i)
-                if item and item.widget() and item.widget() != self._placeholder:
-                    # Set stretch factor to 1 for equal distribution
-                    self._main_layout.setStretch(i, 1)
-
-        logger.debug(f"Updated layout distribution for {len(self._previews)} previews")
 
     def enable_drag_drop(self, enabled: bool = True) -> None:
         """Enable or disable drag-and-drop reordering.
@@ -370,9 +394,9 @@ class PreviewContainer(QWidget):
         """Get the number of previews in the container.
 
         Returns:
-            Number of previews
+            Number of previews (video + audio)
         """
-        return len(self._previews)
+        return len(self._video_previews) + len(self._audio_previews)
 
     def __repr__(self) -> str:
         """Get string representation of the container.
@@ -380,7 +404,10 @@ class PreviewContainer(QWidget):
         Returns:
             String representation
         """
-        return f"PreviewContainer(mode={self._layout_mode.value}, previews={len(self._previews)})"
+        return (
+            f"PreviewContainer(mode={self._layout_mode.value}, "
+            f"video={len(self._video_previews)}, audio={len(self._audio_previews)})"
+        )
 
     def start_capture_and_preview(
         self,
@@ -459,6 +486,13 @@ class PreviewContainer(QWidget):
 
             logger.info(f"Started capture and preview for device: {device_id}")
 
+            # Emit status message for device selection
+            try:
+                metadata = self._capture_manager.get_device_metadata(device_id)
+                self.status_message.emit(f"Selected: {metadata.name}", 3000)
+            except Exception:
+                pass
+
         except Exception as e:
             logger.error(f"Error starting capture and preview: {e}", exc_info=True)
 
@@ -473,30 +507,40 @@ class PreviewContainer(QWidget):
                     pass
 
     def close_preview(self, source_id: str, keep_selection: bool = False) -> None:
-        """Close preview and stop capture for a source.
+        """Close preview and stop capture for a source (video or audio).
 
         Args:
             source_id: Source identifier
             keep_selection: If True, keep device in selected_screen_devices (for mode changes)
         """
         try:
-            # Stop capture
-            if source_id in self._capture_manager:
+            # Check if it's a video source
+            if source_id in self._capture_manager.get_video_source_ids():
+                # Stop video capture
                 capture = self._capture_manager.get_video_source(source_id)
                 if capture:
                     capture.stop_capture()
                 self._capture_manager.remove_video_source(source_id)
 
-            # Remove preview
-            self.remove_preview(source_id)
+                # Remove preview
+                self.remove_preview(source_id)
 
-            # Remove from selected screen devices if it's a base screen device
-            # Only remove if not keeping selection (e.g., user explicitly closed, not mode change)
-            if not keep_selection:
-                if source_id.startswith("screen_") and "_window_" not in source_id:
-                    self._selected_screen_devices.discard(source_id)
+                # Remove from selected screen devices if it's a base screen device
+                # Only remove if not keeping selection (e.g., user explicitly closed, not mode change)
+                if not keep_selection:
+                    if source_id.startswith("screen_") and "_window_" not in source_id:
+                        self._selected_screen_devices.discard(source_id)
 
-            logger.info(f"Closed preview for source: {source_id} (keep_selection={keep_selection})")
+                logger.info(
+                    f"Closed video preview for source: {source_id} (keep_selection={keep_selection})"
+                )
+
+            # Check if it's an audio source
+            elif source_id in self._capture_manager.get_audio_source_ids():
+                self.close_audio_preview(source_id)
+
+            else:
+                logger.warning(f"Source not found: {source_id}")
 
         except Exception as e:
             logger.error(f"Error closing preview: {e}", exc_info=True)
@@ -509,16 +553,13 @@ class PreviewContainer(QWidget):
         """
         return self._selected_screen_devices.copy()
 
-    def handle_selection_change(self, selected_device_ids: list[str]) -> int:
+    def handle_selection_change(self, selected_device_ids: list[str]) -> None:
         """Handle device selection change.
 
         Closes previews for deselected devices.
 
         Args:
             selected_device_ids: List of selected device IDs
-
-        Returns:
-            Number of currently selected devices
         """
         # Get currently active device IDs
         current_device_ids = set(self._capture_manager.get_video_source_ids())
@@ -532,13 +573,18 @@ class PreviewContainer(QWidget):
             logger.info(f"Device deselected, closing preview: {device_id}")
             self.close_preview(device_id)
 
-        return len(selected_device_ids)
+        # Emit status message
+        count = len(selected_device_ids)
+        if count == 0:
+            self.status_message.emit("No devices selected", 2000)
+        elif count > 1:
+            self.status_message.emit(f"{count} devices selected", 3000)
 
     def handle_window_capture_mode_change(
         self,
         mode: str,
         selected_titles: Optional[list[str]] = None,
-    ) -> tuple[str, Optional[str]]:
+    ) -> str:
         """Handle window capture mode change.
 
         Args:
@@ -546,16 +592,17 @@ class PreviewContainer(QWidget):
             selected_titles: List of selected window titles (unused, for compatibility)
 
         Returns:
-            Tuple of (action, message) where action is "show_selector", "wait", or "recreate"
+            Action to take: "show_selector", "wait", or "recreate"
         """
         # Handle show_selector mode
         if mode == "show_selector":
-            return ("show_selector", None)
+            return "show_selector"
 
         # Handle selected_windows mode
         if mode == "selected_windows":
             self._close_all_window_previews()
-            return ("wait", "Click 'Select Windows...' to choose windows")
+            self.status_message.emit("Click 'Select Windows...' to choose windows", 3000)
+            return "wait"
 
         # For full_screen and active_window modes
         # Close all existing screen previews (but keep selection)
@@ -574,7 +621,8 @@ class PreviewContainer(QWidget):
                 window_capture_mode=mode,
             )
 
-        return ("recreate", f"Capture mode: {mode.replace('_', ' ')}")
+        self.status_message.emit(f"Capture mode: {mode.replace('_', ' ')}", 3000)
+        return "recreate"
 
     def _close_all_window_previews(self) -> None:
         """Close all window-specific previews."""
@@ -588,19 +636,17 @@ class PreviewContainer(QWidget):
             logger.info(f"Closing window preview: {device_id}")
             self.close_preview(device_id)
 
-    def show_window_selector_dialog(self, parent: QWidget) -> Optional[list[str]]:
-        """Show window selector dialog and return selected window titles.
+    def show_window_selector_and_create_captures(self, parent: QWidget) -> None:
+        """Show window selector dialog and create captures for selected windows.
 
         Args:
             parent: Parent widget for the dialog
-
-        Returns:
-            List of selected window titles, or None if cancelled
         """
         # Get base screen device
         if not self._selected_screen_devices:
             logger.warning("No screen device selected for window selection")
-            return None
+            self.status_message.emit("Please select a screen device first", 3000)
+            return
 
         base_device_id = next(iter(self._selected_screen_devices))
 
@@ -614,7 +660,8 @@ class PreviewContainer(QWidget):
 
             if not available_windows:
                 logger.warning("No windows available for selection")
-                return None
+                self.status_message.emit("No windows available for selection", 3000)
+                return
 
             # Get currently selected window titles
             current_window_ids = [
@@ -636,14 +683,26 @@ class PreviewContainer(QWidget):
 
             dialog = WindowSelectorDialog(available_windows, current_titles, parent)
 
-            if dialog.exec():
-                return dialog.get_selected_titles()
+            if not dialog.exec():
+                # Dialog cancelled
+                return
 
-            return None
+            selected_titles = dialog.get_selected_titles()
+            if not selected_titles:
+                self.status_message.emit("No windows selected", 3000)
+                return
+
+            # Create window captures
+            success_count = self.create_window_captures(base_device_id, selected_titles)
+
+            if success_count > 0:
+                self.status_message.emit(f"Capturing {success_count} selected window(s)", 3000)
+            else:
+                self.status_message.emit("Failed to create window captures", 3000)
 
         except Exception as e:
             logger.error(f"Error showing window selector: {e}", exc_info=True)
-            return None
+            self.status_message.emit(f"Error: {e}", 5000)
 
     def create_window_captures(self, base_device_id: str, window_titles: list[str]) -> int:
         """Create captures and previews for selected windows.
@@ -732,10 +791,157 @@ class PreviewContainer(QWidget):
             else:
                 # Regular device
                 metadata = self._capture_manager.get_device_metadata(source_id)
-                return (
-                    f"{metadata.name} - {metadata.current_resolution} @ {metadata.current_fps}fps"
-                )
+
+                # Check if it's an audio device
+                if metadata.device_type.value == "audio":
+                    return (
+                        f"{metadata.name} - "
+                        f"{metadata.current_sample_rate} Hz, {metadata.current_channels} ch"
+                    )
+                else:
+                    return f"{metadata.name} - {metadata.current_resolution} @ {metadata.current_fps}fps"
 
         except Exception as e:
             logger.error(f"Error getting device info: {e}", exc_info=True)
             return f"Error: {e}"
+
+    def start_audio_capture_and_preview(self, device_id: str) -> None:
+        """Start audio capture for a device and create preview.
+
+        Args:
+            device_id: Audio device identifier
+
+        Requirements: 12.1
+        """
+        logger.debug(f"start_audio_capture_and_preview called: device_id={device_id}")
+
+        # Check if already capturing
+        if device_id in self._capture_manager.get_audio_source_ids():
+            logger.warning(f"Already capturing from audio device: {device_id}")
+            return
+
+        try:
+            # Import audio capture
+            from visionmate.core.capture.audio import DeviceAudioCapture
+
+            # Create audio capture instance
+            capture = DeviceAudioCapture(chunk_duration=0.5)
+
+            # Start capture
+            capture.start_capture(device_id=device_id)
+
+            # Add to audio source manager
+            self._capture_manager.add_audio_source(device_id, capture)
+
+            # Create and add preview
+            self.add_audio_preview(device_id, capture)
+
+            logger.info(f"Started audio capture and preview for device: {device_id}")
+
+            # Emit status message for device selection
+            try:
+                metadata = self._capture_manager.get_device_metadata(device_id)
+                self.status_message.emit(f"Selected: {metadata.name}", 3000)
+            except Exception:
+                pass
+
+        except Exception as e:
+            logger.error(f"Error starting audio capture and preview: {e}", exc_info=True)
+
+            # Cleanup on error
+            if device_id in self._capture_manager.get_audio_source_ids():
+                try:
+                    capture_obj = self._capture_manager.get_audio_source(device_id)
+                    if capture_obj and hasattr(capture_obj, "stop_capture"):
+                        capture_obj.stop_capture()  # type: ignore
+                    self._capture_manager.remove_audio_source(device_id)
+                except Exception:
+                    pass
+
+    def close_audio_preview(self, source_id: str) -> None:
+        """Close audio preview and stop capture for a source.
+
+        Args:
+            source_id: Source identifier
+        """
+        try:
+            # Stop capture
+            if source_id in self._capture_manager.get_audio_source_ids():
+                capture = self._capture_manager.get_audio_source(source_id)
+                if capture and hasattr(capture, "stop_capture"):
+                    capture.stop_capture()  # type: ignore
+                self._capture_manager.remove_audio_source(source_id)
+
+            # Remove preview
+            self.remove_preview(source_id)
+
+            logger.info(f"Closed audio preview for source: {source_id}")
+
+        except Exception as e:
+            logger.error(f"Error closing audio preview: {e}", exc_info=True)
+
+    def remove_video_previews(self) -> None:
+        """Remove all video previews.
+
+        Requirements: 10.6
+        """
+        # Get all video source IDs
+        video_source_ids = list(self._capture_manager.get_video_source_ids())
+
+        # Close all video previews
+        for source_id in video_source_ids:
+            logger.info(f"Removing video preview: {source_id}")
+            self.close_preview(source_id)
+
+        logger.info(f"Removed {len(video_source_ids)} video preview(s)")
+
+    def remove_audio_previews(self) -> None:
+        """Remove all audio previews.
+
+        Requirements: 10.6
+        """
+        # Get all audio source IDs (copy to avoid modification during iteration)
+        audio_source_ids = list(self._capture_manager.get_audio_source_ids())
+
+        # Close all audio previews
+        for source_id in audio_source_ids:
+            logger.info(f"Removing audio preview: {source_id}")
+            self.close_preview(source_id)
+
+        logger.info(f"Removed {len(audio_source_ids)} audio preview(s)")
+
+    def update_container_visibility(self) -> None:
+        """Update container visibility based on Input Mode.
+
+        This method adjusts the visibility and stretch factors of video and audio
+        containers based on which previews are active.
+        """
+        has_video = len(self._video_previews) > 0
+        has_audio = len(self._audio_previews) > 0
+
+        if has_video and has_audio:
+            # Both: video gets more space (3:1 ratio)
+            self._video_container.show()
+            self._audio_container.show()
+            self._main_layout.setStretch(0, 3)  # Video container
+            self._main_layout.setStretch(1, 1)  # Audio container
+        elif has_video:
+            # Video only: video gets all space
+            self._video_container.show()
+            self._audio_container.hide()
+            self._main_layout.setStretch(0, 1)
+            self._main_layout.setStretch(1, 0)
+        elif has_audio:
+            # Audio only: audio gets all space
+            self._video_container.hide()
+            self._audio_container.show()
+            self._main_layout.setStretch(0, 0)
+            self._main_layout.setStretch(1, 1)
+        else:
+            # None: show placeholder in video container
+            self._video_container.show()
+            self._audio_container.hide()
+            if self._placeholder:
+                self._placeholder.show()
+
+        logger.debug(f"Updated container visibility: video={has_video}, audio={has_audio}")

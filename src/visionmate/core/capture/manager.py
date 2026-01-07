@@ -11,6 +11,7 @@ from typing import Optional
 
 from visionmate.core.capture.device import DeviceManager
 from visionmate.core.capture.source import VideoSourceManager
+from visionmate.core.capture.stream import StreamManager
 from visionmate.core.capture.video import VideoCaptureInterface
 from visionmate.core.models import DeviceMetadata, OptimalSettings, VideoFrame
 
@@ -35,6 +36,8 @@ class CaptureManager:
         """Initialize the CaptureManager."""
         self._device_manager = DeviceManager()
         self._video_source_manager = VideoSourceManager()
+        self._audio_sources: dict[str, object] = {}  # Audio capture interfaces
+        self._stream_manager = StreamManager(self)
         logger.info("CaptureManager initialized")
 
     # ========================================================================
@@ -286,3 +289,112 @@ class CaptureManager:
             String representation
         """
         return f"CaptureManager(video_sources={self.get_video_source_count()})"
+
+    # ========================================================================
+    # Audio Source Management
+    # ========================================================================
+
+    def add_audio_source(self, source_id: str, capture: object) -> None:
+        """Add an audio source.
+
+        Args:
+            source_id: Unique identifier for the source
+            capture: AudioCaptureInterface instance
+
+        Raises:
+            ValueError: If source_id already exists
+
+        Requirements: 12.1
+        """
+        if source_id in self._audio_sources:
+            raise ValueError(f"Audio source already exists: {source_id}")
+
+        self._audio_sources[source_id] = capture
+        logger.info(f"Added audio source: {source_id}")
+
+    def remove_audio_source(self, source_id: str) -> None:
+        """Remove an audio source.
+
+        Args:
+            source_id: Source identifier
+
+        Raises:
+            KeyError: If source_id does not exist
+
+        Requirements: 12.1
+        """
+        if source_id not in self._audio_sources:
+            raise KeyError(f"Audio source not found: {source_id}")
+
+        # Clean up stream
+        self._stream_manager.cleanup_stream(source_id)
+
+        del self._audio_sources[source_id]
+        logger.info(f"Removed audio source: {source_id}")
+
+    def get_audio_source(self, source_id: str) -> Optional[object]:
+        """Get an audio source by ID.
+
+        Args:
+            source_id: Source identifier
+
+        Returns:
+            AudioCaptureInterface instance, or None if not found
+
+        Requirements: 12.1
+        """
+        return self._audio_sources.get(source_id)
+
+    def get_audio_source_ids(self) -> list[str]:
+        """Get list of all audio source IDs.
+
+        Returns:
+            List of source IDs
+
+        Requirements: 12.1
+        """
+        return list(self._audio_sources.keys())
+
+    def get_audio_source_count(self) -> int:
+        """Get the number of active audio sources.
+
+        Returns:
+            Number of active sources
+
+        Requirements: 12.1
+        """
+        return len(self._audio_sources)
+
+    def stop_all_audio_sources(self) -> None:
+        """Stop capture for all audio sources.
+
+        Requirements: 12.1
+        """
+        for source_id, capture in self._audio_sources.items():
+            try:
+                if hasattr(capture, "stop_capture") and callable(capture.stop_capture):
+                    capture.stop_capture()  # type: ignore
+                logger.debug(f"Stopped audio source: {source_id}")
+            except Exception as e:
+                logger.error(f"Error stopping audio source {source_id}: {e}", exc_info=True)
+
+    def clear_all_audio_sources(self) -> None:
+        """Remove all audio sources and stop their captures.
+
+        Requirements: 12.1
+        """
+        self.stop_all_audio_sources()
+        self._audio_sources.clear()
+        logger.info("Cleared all audio sources")
+
+    # ========================================================================
+    # Stream Management (for AI modules)
+    # ========================================================================
+
+    def get_stream_manager(self) -> StreamManager:
+        """Get the stream manager for AI module access.
+
+        Returns:
+            StreamManager instance
+        """
+        return self._stream_manager
