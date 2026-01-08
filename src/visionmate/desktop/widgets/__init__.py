@@ -10,6 +10,7 @@ from visionmate.desktop.widgets.control import ControlContainer
 from visionmate.desktop.widgets.input import AudioInputWidget, VideoInputWidget
 from visionmate.desktop.widgets.mode import InputModeWidget
 from visionmate.desktop.widgets.preview import PreviewContainer, PreviewLayout
+from visionmate.desktop.widgets.session import SessionControlWidget
 from visionmate.desktop.widgets.video import VideoPreviewWidget
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "AudioPreviewWidget",
     "ControlContainer",
     "InputModeWidget",
+    "SessionControlWidget",
     "VideoInputWidget",
     "VideoPreviewWidget",
     "PreviewContainer",

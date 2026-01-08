@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from visionmate.core.capture.manager import CaptureManager
 from visionmate.desktop.dialogs import AboutDialog
-from visionmate.desktop.widgets import ControlContainer, PreviewContainer
+from visionmate.desktop.widgets import ControlContainer, PreviewContainer, SessionControlWidget
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +56,16 @@ class MainWindow(QMainWindow):
         # Capture manager
         self._capture_manager = CaptureManager()
 
+        # Session manager
+        from visionmate.core.session import SessionManager
+
+        self._session_manager = SessionManager()
+
         # Control and preview containers
         self._control_container: Optional[ControlContainer] = None
         self._preview_container: Optional[PreviewContainer] = None
         self._drawer_button: Optional[QPushButton] = None
+        self._session_control_widget: Optional[SessionControlWidget] = None
 
         # Setup UI components
         self._setup_menu_bar()
@@ -121,25 +127,25 @@ class MainWindow(QMainWindow):
     def _setup_central_widget(self) -> None:
         """Setup the central widget with control panel and preview area.
 
-        Requirements: 10.4, 10.5, 10.6
+        Requirements: 10.4, 10.5, 10.6, 10.7
         """
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Create main layout
+        # Create main horizontal layout (left: control panel, right: session + preview)
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Create control container
+        # Left side: Control container (full height)
         self._control_container = ControlContainer(
             capture_manager=self._capture_manager,
             parent=self,
         )
         main_layout.addWidget(self._control_container)
 
-        # Create drawer toggle button container
+        # Drawer toggle button container
         drawer_container = QWidget()
         drawer_layout = QVBoxLayout(drawer_container)
         drawer_layout.setContentsMargins(0, 0, 0, 0)
@@ -164,12 +170,24 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(drawer_container)
 
-        # Create preview container
+        # Right side: Vertical stack of session control and preview
+        right_side_widget = QWidget()
+        right_side_layout = QVBoxLayout(right_side_widget)
+        right_side_layout.setContentsMargins(0, 8, 0, 0)  # Add top margin
+        right_side_layout.setSpacing(8)
+
+        # Session control widget at the top
+        self._session_control_widget = SessionControlWidget()
+        right_side_layout.addWidget(self._session_control_widget)
+
+        # Preview container below (takes remaining space)
         self._preview_container = PreviewContainer(
             capture_manager=self._capture_manager,
             parent=self,
         )
-        main_layout.addWidget(self._preview_container, stretch=1)
+        right_side_layout.addWidget(self._preview_container, stretch=1)
+
+        main_layout.addWidget(right_side_widget, stretch=1)
 
         logger.debug("Central widget setup complete")
 
@@ -196,7 +214,7 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """Connect widget signals to handlers.
 
-        Requirements: 9.4, 1.7
+        Requirements: 9.4, 1.7, 9.1, 9.2, 9.3
         """
         if self._control_container:
             # Connect control container signals
@@ -226,6 +244,16 @@ class MainWindow(QMainWindow):
             )
             # Connect status message signal
             self._preview_container.status_message.connect(self._update_status_bar)
+
+        if self._session_control_widget is not None:
+            # Connect session control signals
+            self._session_control_widget.start_requested.connect(self._on_start_requested)
+            self._session_control_widget.stop_requested.connect(self._on_stop_requested)
+            self._session_control_widget.reset_requested.connect(self._on_reset_requested)
+
+        # Connect session manager callbacks
+        self._session_manager.register_callback("state_changed", self._on_session_state_changed)
+        self._session_manager.register_callback("error_occurred", self._on_session_error)
 
         logger.debug("Signals connected")
 
@@ -290,6 +318,9 @@ class MainWindow(QMainWindow):
                         fps=fps,
                         window_capture_mode=window_capture_mode,
                     )
+
+            # Update session control state
+            self._update_session_control_state()
 
         except Exception as e:
             logger.error(f"Error handling device selection: {e}", exc_info=True)
@@ -361,6 +392,9 @@ class MainWindow(QMainWindow):
         if self._capture_manager.get_video_source_count() == 0:
             if self._control_container:
                 self._control_container.clear_selection()
+
+        # Update session control state
+        self._update_session_control_state()
 
     def _on_preview_settings_requested(self, source_id: str) -> None:
         """Handle preview settings request.
@@ -448,6 +482,154 @@ class MainWindow(QMainWindow):
             if self._preview_container is not None:
                 self._preview_container.start_audio_capture_and_preview(device_id)
 
+            # Update session control state
+            self._update_session_control_state()
+
         except Exception as e:
             logger.error(f"Error handling audio device selection: {e}", exc_info=True)
             self.statusBar().showMessage(f"Error: {e}", 5000)
+
+    # ========================================================================
+    # Session Control Handlers
+    # ========================================================================
+
+    def _on_start_requested(self) -> None:
+        """Handle Start button click.
+
+        Requirements: 9.1, 9.6
+        """
+        logger.info("Start session requested")
+
+        try:
+            # Add all active video sources to session manager
+            for source_id in self._capture_manager.get_video_source_ids():
+                capture = self._capture_manager.get_video_source(source_id)
+                if capture:
+                    # Extract source type and device_id from source_id
+                    # Format: "{source_type}_{device_id}"
+                    parts = source_id.split("_", 1)
+                    if len(parts) == 2:
+                        source_type_str, device_id = parts
+                        from visionmate.core.models import VideoSourceType
+
+                        try:
+                            _source_type = VideoSourceType(source_type_str)
+                            # Note: We're not re-adding sources to session manager
+                            # because they're already managed by capture_manager
+                            # The session manager will coordinate their lifecycle
+                        except ValueError:
+                            logger.warning(f"Unknown source type: {source_type_str}")
+
+            # Add audio source if configured
+            audio_device_id = (
+                self._control_container.get_selected_audio_device_id()
+                if self._control_container
+                else None
+            )
+            if audio_device_id:
+                # Assume device audio for now
+                # Note: Similar to video, audio is already managed by capture_manager
+                pass
+
+            # Start the session
+            self._session_manager.start()
+
+            self.statusBar().showMessage("Session started", 3000)
+
+        except Exception as e:
+            logger.error(f"Failed to start session: {e}", exc_info=True)
+            self.statusBar().showMessage(f"Failed to start: {e}", 5000)
+
+    def _on_stop_requested(self) -> None:
+        """Handle Stop button click.
+
+        Requirements: 9.2, 9.7
+        """
+        logger.info("Stop session requested")
+
+        try:
+            # Stop the session
+            self._session_manager.stop()
+
+            self.statusBar().showMessage("Session stopped", 3000)
+
+        except Exception as e:
+            logger.error(f"Failed to stop session: {e}", exc_info=True)
+            self.statusBar().showMessage(f"Failed to stop: {e}", 5000)
+
+    def _on_reset_requested(self) -> None:
+        """Handle Reset button click.
+
+        Requirements: 9.3, 9.8
+        """
+        logger.info("Reset session requested")
+
+        try:
+            # Reset the session
+            self._session_manager.reset()
+
+            self.statusBar().showMessage("Session reset", 3000)
+
+        except Exception as e:
+            logger.error(f"Failed to reset session: {e}", exc_info=True)
+            self.statusBar().showMessage(f"Failed to reset: {e}", 5000)
+
+    def _on_session_state_changed(self, data: dict) -> None:
+        """Handle session state change event.
+
+        Args:
+            data: Event data containing "state" key
+
+        Requirements: 9.5, 9.9, 9.10
+        """
+        from visionmate.core.models import SessionState
+
+        state = data.get("state")
+        if not isinstance(state, SessionState):
+            return
+
+        logger.info(f"Session state changed: {state.value}")
+
+        # Update session control widget
+        if self._session_control_widget:
+            self._session_control_widget.set_session_state(state)
+
+        # Update control container (enable/disable device selection)
+        if self._control_container:
+            if state == SessionState.ACTIVE:
+                # Disable device selection during active session
+                self._control_container.setEnabled(False)
+            else:
+                # Enable device selection when stopped
+                self._control_container.setEnabled(True)
+
+        # Update status bar
+        if state == SessionState.ACTIVE:
+            self.statusBar().showMessage("Session active - capturing and processing")
+        else:
+            self.statusBar().showMessage("Session idle")
+
+    def _on_session_error(self, data: dict) -> None:
+        """Handle session error event.
+
+        Args:
+            data: Event data containing "error" key
+        """
+        error = data.get("error", "Unknown error")
+        logger.error(f"Session error: {error}")
+        self.statusBar().showMessage(f"Session error: {error}", 5000)
+
+    def _update_session_control_state(self) -> None:
+        """Update session control widget based on device selection.
+
+        Requirements: 9.5
+        """
+        if not self._session_control_widget:
+            return
+
+        # Check if we have any devices selected
+        has_video = self._capture_manager.get_video_source_count() > 0
+        has_audio = self._capture_manager.get_audio_source_count() > 0
+        has_devices = has_video or has_audio
+
+        self._session_control_widget.set_has_devices(has_devices)
