@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
 )
 
 from visionmate.core.capture.manager import CaptureManager
+from visionmate.core.models import WindowGeometry
+from visionmate.core.settings import SettingsManager
 from visionmate.desktop.dialogs import AboutDialog
 from visionmate.desktop.widgets import ControlContainer, PreviewContainer, SessionControlWidget
 
@@ -53,6 +55,11 @@ class MainWindow(QMainWindow):
         self._app_name = APP_NAME
         self._app_version = APP_VERSION
 
+        # Settings manager
+        self._settings_manager = SettingsManager()
+        self._settings = self._settings_manager.load_settings()
+        logger.info("Settings loaded successfully")
+
         # Capture manager
         self._capture_manager = CaptureManager()
 
@@ -75,7 +82,73 @@ class MainWindow(QMainWindow):
         # Wire up signals
         self._connect_signals()
 
+        # Apply loaded settings to components
+        self._apply_settings()
+
         logger.info("MainWindow initialized successfully")
+
+    def _apply_settings(self) -> None:
+        """Apply loaded settings to components.
+
+        Requirements: 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7
+        """
+        logger.info("Applying settings to components")
+
+        try:
+            # Apply window geometry if available
+            if self._settings.window_geometry:
+                geom = self._settings.window_geometry
+                self.setGeometry(geom.x, geom.y, geom.width, geom.height)
+                logger.debug(
+                    f"Applied window geometry: {geom.x}, {geom.y}, {geom.width}x{geom.height}"
+                )
+
+            # Apply input mode
+            if self._control_container and self._control_container._input_mode_widget:
+                self._control_container._input_mode_widget.set_mode(self._settings.input_mode)
+                logger.debug(f"Applied input mode: {self._settings.input_mode.value}")
+
+            # Note: FPS is now configured per-preview via settings dialog
+            # Note: Preview layout settings will be applied when preview container is enhanced
+            # Note: Video and audio sources are not automatically restored on startup
+            # Users must manually select devices each time they launch the application
+            # This is intentional to avoid issues with devices that may not be available
+
+            logger.info("Settings applied successfully")
+
+        except Exception as e:
+            logger.error(f"Error applying settings: {e}", exc_info=True)
+
+    def _save_settings(self) -> None:
+        """Save current settings to storage.
+
+        Requirements: 29.1
+        """
+        try:
+            # Update window geometry
+            geom = self.geometry()
+            self._settings.window_geometry = WindowGeometry(
+                x=geom.x(),
+                y=geom.y(),
+                width=geom.width(),
+                height=geom.height(),
+            )
+
+            # Update input mode
+            if self._control_container and self._control_container._input_mode_widget:
+                self._settings.input_mode = self._control_container._input_mode_widget.get_mode()
+
+            # Update default FPS (currently fixed at 1, but save for future use)
+            self._settings.default_fps = 1
+
+            # Note: Preview layout settings will be saved when preview container is enhanced
+
+            # Save to disk
+            self._settings_manager.save_settings(self._settings)
+            logger.info("Settings saved successfully")
+
+        except Exception as e:
+            logger.error(f"Error saving settings: {e}", exc_info=True)
 
     def _setup_menu_bar(self) -> None:
         """Setup the menu bar with all menus."""
@@ -104,9 +177,12 @@ class MainWindow(QMainWindow):
 
         # Settings menu
         settings_menu = menu_bar.addMenu("&Settings")
-        settings_placeholder = QAction("(Settings coming soon)", self)
-        settings_placeholder.setEnabled(False)
-        settings_menu.addAction(settings_placeholder)
+
+        settings_action = QAction("&Preferences...", self)
+        settings_action.setShortcut("Ctrl+,")
+        settings_action.setStatusTip("Open application settings")
+        settings_action.triggered.connect(self._show_settings_dialog)
+        settings_menu.addAction(settings_action)
 
         # Help menu
         help_menu = menu_bar.addMenu("&Help")
@@ -123,6 +199,30 @@ class MainWindow(QMainWindow):
         logger.debug("Showing About dialog")
         dialog = AboutDialog(self._app_name, self._app_version, self)
         dialog.exec()
+
+    def _show_settings_dialog(self) -> None:
+        """Show the Settings dialog.
+
+        Requirements: 15.1
+        """
+        logger.debug("Showing Settings dialog")
+
+        from visionmate.desktop.dialogs import SettingsDialog
+
+        dialog = SettingsDialog(
+            settings_manager=self._settings_manager,
+            current_fps=self._settings.default_fps,
+            parent=self,
+        )
+
+        if dialog.exec():
+            # Settings were saved, reload them
+            self._settings = self._settings_manager.load_settings()
+            self._apply_settings()
+            self.statusBar().showMessage("Settings saved successfully", 3000)
+            logger.info("Settings updated and applied")
+        else:
+            logger.debug("Settings dialog cancelled")
 
     def _setup_central_widget(self) -> None:
         """Setup the central widget with control panel and preview area.
@@ -173,7 +273,7 @@ class MainWindow(QMainWindow):
         # Right side: Vertical stack of session control and preview
         right_side_widget = QWidget()
         right_side_layout = QVBoxLayout(right_side_widget)
-        right_side_layout.setContentsMargins(0, 8, 0, 0)  # Add top margin
+        right_side_layout.setContentsMargins(0, 8, 8, 0)  # Add top and right margins
         right_side_layout.setSpacing(8)
 
         # Session control widget at the top
@@ -416,13 +516,17 @@ class MainWindow(QMainWindow):
             if hasattr(capture, "get_fps") and callable(getattr(capture, "get_fps", None)):
                 current_fps = capture.get_fps()  # type: ignore[attr-defined]
 
-            # Show settings dialog
+            # Show comprehensive settings dialog
             from visionmate.desktop.dialogs import SettingsDialog
 
-            dialog = SettingsDialog(current_fps=current_fps, parent=self)
+            dialog = SettingsDialog(
+                settings_manager=self._settings_manager,
+                current_fps=current_fps,
+                parent=self,
+            )
 
             if dialog.exec():
-                # User clicked OK - apply new FPS
+                # User clicked OK - apply new FPS to this specific capture
                 new_fps = dialog.get_fps()
                 logger.info(f"Applying new FPS: {new_fps} for source: {source_id}")
 
@@ -433,6 +537,10 @@ class MainWindow(QMainWindow):
                 else:
                     logger.warning(f"Capture does not support set_fps: {type(capture)}")
                     self.statusBar().showMessage("FPS update not supported for this source", 3000)
+
+                # Reload settings in case other settings were changed
+                self._settings = self._settings_manager.load_settings()
+                self._apply_settings()
             else:
                 # User clicked Cancel - do nothing
                 logger.debug("Settings dialog cancelled")
@@ -633,3 +741,26 @@ class MainWindow(QMainWindow):
         has_devices = has_video or has_audio
 
         self._session_control_widget.set_has_devices(has_devices)
+
+    def closeEvent(self, event) -> None:
+        """Handle window close event.
+
+        Save settings before closing.
+
+        Requirements: 29.1
+        """
+        logger.info("Closing main window")
+
+        # Save settings
+        self._save_settings()
+
+        # Stop session if active
+        from visionmate.core.models import SessionState
+
+        if self._session_manager.get_state() == SessionState.ACTIVE:
+            logger.info("Stopping active session before closing")
+            self._session_manager.stop()
+
+        # Accept the close event
+        event.accept()
+        logger.info("Main window closed")
