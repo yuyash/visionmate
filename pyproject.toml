@@ -37,7 +37,6 @@ dependencies = [
     "pyobjc-framework-Quartz>=10.3.1; sys_platform == 'darwin'",
     "pywin32>=308; sys_platform == 'win32'",
     "python-xlib>=0.33; sys_platform == 'linux'",
-    "pyobjc-framework-quartz>=10.3.1",
 ]
 
 [tool.uv]
