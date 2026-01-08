@@ -108,8 +108,8 @@ jobs:
           export DISPLAY=:99
           # Wait for services to start
           sleep 3
-          # Run unit tests and integration tests
-          uv run pytest tests/unit tests/integration --cov=src --cov-report=xml --cov-report=html
+          # Run unit tests and integration tests with parallel execution
+          uv run pytest tests/unit tests/integration -n auto --cov=src --cov-report=xml --cov-report=html
 
       - name: Upload coverage HTML artifact
         uses: actions/upload-artifact@v4

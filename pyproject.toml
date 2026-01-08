@@ -24,6 +24,19 @@ dependencies = [
     "numpy>=2.0.0,<2.3.0",
     # UI dependencies
     "PySide6>=6.10.1",
+    # Web dependencies
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    # VLM dependencies
+    "openai>=1.59.0",
+    # Security dependencies
+    "keyring>=25.5.0",
+    # Internationalization dependencies
+    "babel>=2.16.0",
+    # Platform-specific window detection dependencies
+    "pyobjc-framework-Quartz>=10.3.1; sys_platform == 'darwin'",
+    "pywin32>=308; sys_platform == 'win32'",
+    "python-xlib>=0.33; sys_platform == 'linux'",
 ]
 
 [tool.uv]
@@ -54,7 +67,14 @@ unresolved-import = "ignore"
 minversion = "8.0"
 testpaths = ["tests/unit", "tests/integration"]
 python_files = ["test_*.py", "*_test.py"]
-addopts = ["-ra"]
+addopts = ["-ra", "--strict-markers"]
 markers = [
     "integration: integration tests that require real hardware (run in CI with Xvfb)",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
+# pytest-xdist configuration
+# Use -n auto to automatically detect CPU count
+# Use -n <number> to specify number of workers
+
+[dependency-groups]
+dev = ["pytest-xdist>=3.8.0"]

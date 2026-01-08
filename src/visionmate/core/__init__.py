@@ -1,6 +1,59 @@
-"""Core application logic and session management."""
+"""Core functionality for Visionmate application."""
 
-from visionmate.core.input import InputMode
-from visionmate.core.session import SessionManager, SessionState
+from visionmate.core.logging import LogConsoleHandler, get_logger, setup_logging
+from visionmate.core.models import (
+    AppSettings,
+    AudioChunk,
+    AudioMode,
+    AudioSourceConfig,
+    AudioSourceType,
+    DeviceMetadata,
+    DeviceType,
+    InputMode,
+    LocaleSettings,
+    OpenAICompatibleModel,
+    OpenAIRealtimeModel,
+    PreviewLayout,
+    PreviewLayoutSettings,
+    Resolution,
+    SessionState,
+    STTProvider,
+    STTSettings,
+    VideoFrame,
+    VideoSourceConfig,
+    VideoSourceType,
+    VLMProvider,
+    VLMSettings,
+    WindowGeometry,
+    WindowRegion,
+)
 
-__all__ = ["InputMode", "SessionManager", "SessionState"]
+__all__ = [
+    "AppSettings",
+    "AudioChunk",
+    "AudioMode",
+    "AudioSourceConfig",
+    "AudioSourceType",
+    "DeviceMetadata",
+    "DeviceType",
+    "InputMode",
+    "LocaleSettings",
+    "LogConsoleHandler",
+    "OpenAICompatibleModel",
+    "OpenAIRealtimeModel",
+    "PreviewLayout",
+    "PreviewLayoutSettings",
+    "Resolution",
+    "SessionState",
+    "STTProvider",
+    "STTSettings",
+    "VideoFrame",
+    "VideoSourceConfig",
+    "VideoSourceType",
+    "VLMProvider",
+    "VLMSettings",
+    "WindowGeometry",
+    "WindowRegion",
+    "get_logger",
+    "setup_logging",
+]
