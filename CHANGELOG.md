@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/yuyash/visionmate/compare/v0.8.0...v1.0.0) (2026-01-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* Widget module paths changed (video_input → input, etc.)
+
+### Features
+
+* add new interface ([#24](https://github.com/yuyash/visionmate/issues/24)) ([03dc376](https://github.com/yuyash/visionmate/commit/03dc376278c4450211d7c7d5085b428e2077f368))
+
 ## [0.8.0](https://github.com/yuyash/visionmate/compare/v0.7.0...v0.8.0) (2026-01-06)
 
 
