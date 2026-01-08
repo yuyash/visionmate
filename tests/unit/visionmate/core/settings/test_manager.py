@@ -3,6 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -159,17 +160,25 @@ class TestSettingsManager:
         username = "test_user"
         password = "test_password"
 
-        # Store credential
-        settings_manager.store_credential(service, username, password)
+        # Mock keyring to avoid CI environment issues
+        with patch("keyring.set_password") as mock_set, patch("keyring.get_password") as mock_get:
+            mock_get.return_value = password
 
-        # Retrieve credential
-        retrieved = settings_manager.get_credential(service, username)
-        assert retrieved == password
+            # Store credential
+            settings_manager.store_credential(service, username, password)
+            mock_set.assert_called_once_with(service, username, password)
+
+            # Retrieve credential
+            retrieved = settings_manager.get_credential(service, username)
+            assert retrieved == password
+            mock_get.assert_called_with(service, username)
 
     def test_get_credential_not_found(self, settings_manager):
         """Test retrieving non-existent credential."""
-        result = settings_manager.get_credential("nonexistent", "user")
-        assert result is None
+        with patch("keyring.get_password") as mock_get:
+            mock_get.return_value = None
+            result = settings_manager.get_credential("nonexistent", "user")
+            assert result is None
 
     def test_delete_credential(self, settings_manager):
         """Test deleting credentials."""
@@ -177,22 +186,33 @@ class TestSettingsManager:
         username = "test_user"
         password = "test_password"
 
-        # Store credential
-        settings_manager.store_credential(service, username, password)
+        with (
+            patch("keyring.set_password") as mock_set,
+            patch("keyring.get_password") as mock_get,
+            patch("keyring.delete_password") as mock_delete,
+        ):
+            # Store credential
+            settings_manager.store_credential(service, username, password)
+            mock_set.assert_called_once_with(service, username, password)
 
-        # Verify it exists
-        assert settings_manager.get_credential(service, username) == password
+            # Verify it exists
+            mock_get.return_value = password
+            assert settings_manager.get_credential(service, username) == password
 
-        # Delete credential
-        settings_manager.delete_credential(service, username)
+            # Delete credential
+            settings_manager.delete_credential(service, username)
+            mock_delete.assert_called_once_with(service, username)
 
-        # Verify it's gone
-        assert settings_manager.get_credential(service, username) is None
+            # Verify it's gone
+            mock_get.return_value = None
+            assert settings_manager.get_credential(service, username) is None
 
     def test_delete_nonexistent_credential(self, settings_manager):
         """Test deleting non-existent credential doesn't raise error."""
-        # Should not raise an exception
-        settings_manager.delete_credential("nonexistent", "user")
+        with patch("keyring.delete_password") as mock_delete:
+            # Should not raise an exception
+            settings_manager.delete_credential("nonexistent", "user")
+            mock_delete.assert_called_once_with("nonexistent", "user")
 
     def test_settings_file_format(self, settings_manager):
         """Test that settings file is properly formatted JSON."""
