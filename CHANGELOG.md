@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/yuyash/visionmate/compare/v1.0.0...v1.1.0) (2026-01-08)
+
+
+### Features
+
+* **ui:** implement settings dialog ([#27](https://github.com/yuyash/visionmate/issues/27)) ([6d2b98b](https://github.com/yuyash/visionmate/commit/6d2b98b7d7a7df02f32a239b51fcbe5fdfd93a51))
+
 ## [1.0.0](https://github.com/yuyash/visionmate/compare/v0.8.0...v1.0.0) (2026-01-08)
 
 
