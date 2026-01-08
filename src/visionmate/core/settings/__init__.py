@@ -1,0 +1,5 @@
+"""Settings module for Visionmate application."""
+
+from visionmate.core.settings.manager import SettingsManager
+
+__all__ = ["SettingsManager"]
