@@ -44,11 +44,11 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         logger.info("Initializing MainWindow")
 
-        self.setWindowTitle("Visionmate")
-        self.setMinimumSize(800, 600)
-
         # Store app info for About dialog
         from visionmate.__main__ import APP_NAME, APP_VERSION
+
+        self.setWindowTitle(f"{APP_NAME.capitalize()} v{APP_VERSION}")
+        self.setMinimumSize(1024, 768)
 
         self._app_name = APP_NAME
         self._app_version = APP_VERSION
@@ -221,6 +221,9 @@ class MainWindow(QMainWindow):
             self._preview_container.preview_close_requested.connect(
                 self._on_preview_close_requested
             )
+            self._preview_container.preview_settings_requested.connect(
+                self._on_preview_settings_requested
+            )
             # Connect status message signal
             self._preview_container.status_message.connect(self._update_status_bar)
 
@@ -265,14 +268,28 @@ class MainWindow(QMainWindow):
             # Get FPS setting
             fps = self._control_container.get_fps() if self._control_container else 1
 
+            # For Selected Windows mode, get selected window titles
+            selected_window_titles: list[str] = []
+            if window_capture_mode == "selected_windows" and self._control_container:
+                if self._control_container._video_input_widget is not None:
+                    selected_window_titles = (
+                        self._control_container._video_input_widget.get_selected_windows()
+                    )
+
             # Start capture and preview via preview container
             if self._preview_container is not None:
-                self._preview_container.start_capture_and_preview(
-                    source_type=source_type,
-                    device_id=device_id,
-                    fps=fps,
-                    window_capture_mode=window_capture_mode,
-                )
+                # For Selected Windows mode, create window captures
+                if window_capture_mode == "selected_windows" and selected_window_titles:
+                    self._preview_container.create_window_captures(
+                        device_id, selected_window_titles
+                    )
+                else:
+                    self._preview_container.start_capture_and_preview(
+                        source_type=source_type,
+                        device_id=device_id,
+                        fps=fps,
+                        window_capture_mode=window_capture_mode,
+                    )
 
         except Exception as e:
             logger.error(f"Error handling device selection: {e}", exc_info=True)
@@ -284,11 +301,19 @@ class MainWindow(QMainWindow):
         Args:
             selected_device_ids: List of selected device IDs
         """
-        if self._preview_container is None:
-            return
+        # Note: With the new "Add to Preview" button workflow, we don't automatically
+        # close previews when devices are deselected. Users must explicitly close
+        # previews using the close button on each preview.
+        # This method is kept for potential future use or status updates.
 
-        # Delegate to preview container
-        self._preview_container.handle_selection_change(selected_device_ids)
+        # Emit status message for selection count
+        count = len(selected_device_ids)
+        if count == 0:
+            self.statusBar().showMessage("No devices selected", 2000)
+        elif count == 1:
+            self.statusBar().showMessage("1 device selected", 2000)
+        elif count > 1:
+            self.statusBar().showMessage(f"{count} devices selected", 2000)
 
     def _on_window_capture_mode_changed(self, mode: str, selected_titles: list[str]) -> None:
         """Handle window capture mode change.
@@ -297,23 +322,26 @@ class MainWindow(QMainWindow):
             mode: Capture mode
             selected_titles: List of selected window titles
         """
-        if self._preview_container is None:
-            return
+        # Note: With the new "Add to Preview" button workflow, changing the capture mode
+        # only affects NEW previews that will be added. Existing previews are not modified.
+        # This ensures that once a preview is added, it remains independent of control changes.
 
-        # Delegate to preview container
-        action = self._preview_container.handle_window_capture_mode_change(mode, selected_titles)
-
-        # Handle action
-        if action == "show_selector":
+        if mode == "show_selector":
+            # Special case: show window selector dialog
             self._show_window_selector()
 
     def _show_window_selector(self) -> None:
         """Show window selector dialog for selected windows mode."""
-        if self._preview_container is None:
+        if self._preview_container is None or self._control_container is None:
             return
 
-        # Delegate to preview container
-        self._preview_container.show_window_selector_and_create_captures(self)
+        # Show window selector and update control container with selected windows
+        selected_titles = self._preview_container.show_window_selector(self)
+
+        if selected_titles is not None:
+            # Update VideoInputWidget with selected windows
+            if self._control_container._video_input_widget is not None:
+                self._control_container._video_input_widget.set_selected_windows(selected_titles)
 
     def _on_preview_close_requested(self, source_id: str) -> None:
         """Handle preview close request.
@@ -333,6 +361,51 @@ class MainWindow(QMainWindow):
         if self._capture_manager.get_video_source_count() == 0:
             if self._control_container:
                 self._control_container.clear_selection()
+
+    def _on_preview_settings_requested(self, source_id: str) -> None:
+        """Handle preview settings request.
+
+        Args:
+            source_id: Source identifier
+        """
+        logger.info(f"Settings requested for preview: {source_id}")
+
+        try:
+            # Get current capture instance
+            capture = self._capture_manager.get_video_source(source_id)
+            if not capture:
+                logger.warning(f"Capture not found for source: {source_id}")
+                return
+
+            # Get current FPS from capture
+            current_fps = 1  # Default
+            if hasattr(capture, "get_fps") and callable(getattr(capture, "get_fps", None)):
+                current_fps = capture.get_fps()  # type: ignore[attr-defined]
+
+            # Show settings dialog
+            from visionmate.desktop.dialogs import SettingsDialog
+
+            dialog = SettingsDialog(current_fps=current_fps, parent=self)
+
+            if dialog.exec():
+                # User clicked OK - apply new FPS
+                new_fps = dialog.get_fps()
+                logger.info(f"Applying new FPS: {new_fps} for source: {source_id}")
+
+                # Update FPS on capture instance
+                if hasattr(capture, "set_fps") and callable(getattr(capture, "set_fps", None)):
+                    capture.set_fps(new_fps)  # type: ignore[attr-defined]
+                    self.statusBar().showMessage(f"FPS updated to {new_fps}", 3000)
+                else:
+                    logger.warning(f"Capture does not support set_fps: {type(capture)}")
+                    self.statusBar().showMessage("FPS update not supported for this source", 3000)
+            else:
+                # User clicked Cancel - do nothing
+                logger.debug("Settings dialog cancelled")
+
+        except Exception as e:
+            logger.error(f"Error showing settings dialog: {e}", exc_info=True)
+            self.statusBar().showMessage(f"Error: {e}", 5000)
 
     def _on_input_mode_changed(self, mode) -> None:
         """Handle input mode change.

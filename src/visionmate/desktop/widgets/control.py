@@ -139,7 +139,7 @@ class ControlContainer(QWidget):
             # Connect and forward signals
             self._video_input_widget.source_type_changed.connect(self._on_source_type_changed)
             self._video_input_widget.refresh_requested.connect(self._on_refresh_requested)
-            self._video_input_widget.device_selected.connect(self._on_device_selected)
+            self._video_input_widget.add_requested.connect(self._on_add_requested)
             self._video_input_widget.selection_changed.connect(self._on_selection_changed)
             self._video_input_widget.window_capture_mode_changed.connect(
                 self._on_window_capture_mode_changed
@@ -147,7 +147,7 @@ class ControlContainer(QWidget):
 
         if self._audio_input_widget is not None:
             # Connect audio widget signals
-            self._audio_input_widget.device_selected.connect(self._on_audio_device_selected)
+            self._audio_input_widget.add_requested.connect(self._on_audio_add_requested)
             self._audio_input_widget.refresh_requested.connect(self._on_audio_refresh_requested)
 
         logger.debug("ControlContainer signals connected")
@@ -252,14 +252,14 @@ class ControlContainer(QWidget):
             logger.error(f"Error refreshing device list: {e}", exc_info=True)
             self.status_message.emit(f"Error: {e}", 5000)
 
-    def _on_device_selected(self, source_type: str, device_id: str) -> None:
-        """Handle device selection.
+    def _on_add_requested(self, source_type: str, device_id: str) -> None:
+        """Handle add button click for video device.
 
         Args:
             source_type: Type of source ("screen", "uvc", "rtsp")
             device_id: Device identifier
         """
-        logger.info(f"Device selected: {device_id} (type: {source_type})")
+        logger.info(f"Add requested: {device_id} (type: {source_type})")
 
         # Forward signal
         self.device_selected.emit(source_type, device_id)
@@ -311,10 +311,10 @@ class ControlContainer(QWidget):
         """Get the current FPS setting.
 
         Returns:
-            FPS value (1-240)
+            FPS value (default: 1)
         """
-        if self._video_input_widget is not None:
-            return self._video_input_widget.get_fps()
+        # FPS is now configured per-preview via settings dialog
+        # Return default value for initial capture
         return 1  # Default
 
     def clear_selection(self) -> None:
@@ -331,15 +331,15 @@ class ControlContainer(QWidget):
         """
         return self._device_cache.copy()
 
-    def _on_audio_device_selected(self, device_id: str) -> None:
-        """Handle audio device selection.
+    def _on_audio_add_requested(self, device_id: str) -> None:
+        """Handle add button click for audio device.
 
         Args:
             device_id: Audio device identifier
 
         Requirements: 12.1
         """
-        logger.info(f"Audio device selected: {device_id}")
+        logger.info(f"Audio add requested: {device_id}")
 
         # Forward signal
         self.audio_device_selected.emit(device_id)

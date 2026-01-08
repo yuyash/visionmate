@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QRadioButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +42,9 @@ class VideoInputWidget(QWidget):
 
     # Signal emitted when a device is selected
     device_selected = Signal(str, str)  # (source_type, device_id)
+
+    # Signal emitted when add button is clicked
+    add_requested = Signal(str, str)  # (source_type, device_id)
 
     # Signal emitted when refresh is requested
     refresh_requested = Signal(str)  # source_type
@@ -67,6 +69,9 @@ class VideoInputWidget(QWidget):
         """
         super().__init__(parent)
         logger.debug("Initializing VideoInputWidget")
+
+        # Store selected window titles for Selected Windows mode
+        self._selected_window_titles: list[str] = []
 
         self._setup_ui()
 
@@ -132,29 +137,52 @@ class VideoInputWidget(QWidget):
         group_layout.addWidget(self._window_mode_widget)
         self._window_mode_widget.hide()  # Hidden until screen capture is selected
 
-        # FPS setting (capture rate)
-        fps_layout = QHBoxLayout()
-        fps_label = QLabel("Capture FPS:")
-        fps_label.setToolTip("How often to capture frames (1 = once per second)")
-
-        self._fps_spinbox = QSpinBox()
-        self._fps_spinbox.setMinimum(1)
-        self._fps_spinbox.setMaximum(240)
-        self._fps_spinbox.setValue(1)  # Default: 1 FPS
-        self._fps_spinbox.setSuffix(" fps")
-        self._fps_spinbox.setToolTip("Frame capture rate (1-240 fps)")
-
-        fps_layout.addWidget(fps_label)
-        fps_layout.addWidget(self._fps_spinbox, stretch=1)
-        group_layout.addLayout(fps_layout)
-
         # Device list (full width, global stylesheet applied)
         self._device_list = QListWidget()
         self._device_list.setFrameShape(QListWidget.Shape.NoFrame)
         self._device_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        self._device_list.setMinimumHeight(150)  # Set minimum height to prevent layout changes
         # Global stylesheet handles list widget styling
         self._device_list.itemSelectionChanged.connect(self._on_device_selected)
         group_layout.addWidget(self._device_list)
+
+        # Button to select windows (only visible in selected windows mode)
+        # Placed before Add button for better flow
+        self._select_windows_button = QPushButton("Select Windows...")
+        self._select_windows_button.clicked.connect(self._on_select_windows_clicked)
+        self._select_windows_button.hide()  # Hidden by default
+        group_layout.addWidget(self._select_windows_button)
+
+        # Label to show selected windows (only visible in selected windows mode)
+        self._selected_windows_label = QLabel()
+        self._selected_windows_label.setWordWrap(True)
+        self._selected_windows_label.setMaximumHeight(80)  # Limit height to prevent layout issues
+        self._selected_windows_label.setStyleSheet(
+            """
+            QLabel {
+                color: #666666;
+                font-size: 11px;
+                padding: 5px;
+                background-color: #f0f0f0;
+                border-radius: 3px;
+            }
+            """
+        )
+        self._selected_windows_label.hide()  # Hidden by default
+        group_layout.addWidget(self._selected_windows_label)
+
+        # Add button for video input
+        self._add_button = QPushButton("Add to Preview")
+        self._add_button.setToolTip("Add selected device(s) to preview")
+        self._add_button.clicked.connect(self._on_add_clicked)
+        self._add_button.setEnabled(False)  # Disabled until device is selected
+        group_layout.addWidget(self._add_button)
+
+        # Reset button for video input
+        self._reset_button = QPushButton("Reset")
+        self._reset_button.setToolTip("Clear all selections")
+        self._reset_button.clicked.connect(self._on_reset_clicked)
+        group_layout.addWidget(self._reset_button)
 
         # RTSP URL input (only visible when RTSP is selected)
         self._rtsp_input_widget = QWidget()
@@ -192,13 +220,6 @@ class VideoInputWidget(QWidget):
 
         group_layout.addWidget(self._window_detection_widget)
         self._window_detection_widget.hide()  # Hidden until UVC or RTSP is selected
-
-        # Button to select windows (only visible in selected windows mode)
-        # Placed after device list for natural flow
-        self._select_windows_button = QPushButton("Select Windows...")
-        self._select_windows_button.clicked.connect(self._on_select_windows_clicked)
-        self._select_windows_button.hide()  # Hidden by default
-        group_layout.addWidget(self._select_windows_button)
 
         # Add group box to main layout
         layout.addWidget(group_box)
@@ -319,9 +340,15 @@ class VideoInputWidget(QWidget):
         if self._full_screen_radio.isChecked():
             mode = "full_screen"
             self._select_windows_button.hide()
+            # Clear selected windows when switching away from Selected Windows mode
+            self._selected_window_titles.clear()
+            self._update_selected_windows_display()
         elif self._active_window_radio.isChecked():
             mode = "active_window"
             self._select_windows_button.hide()
+            # Clear selected windows when switching away from Selected Windows mode
+            self._selected_window_titles.clear()
+            self._update_selected_windows_display()
         elif self._selected_windows_radio.isChecked():
             mode = "selected_windows"
             self._select_windows_button.show()
@@ -339,10 +366,49 @@ class VideoInputWidget(QWidget):
         # Use a special signal value to indicate button was clicked
         self.window_capture_mode_changed.emit("show_selector", [])
 
+    def set_selected_windows(self, window_titles: list[str]) -> None:
+        """Set the selected window titles and update the display.
+
+        Args:
+            window_titles: List of selected window titles
+        """
+        self._selected_window_titles = window_titles.copy()
+        self._update_selected_windows_display()
+
+    def get_selected_windows(self) -> list[str]:
+        """Get the list of selected window titles.
+
+        Returns:
+            List of selected window titles
+        """
+        return self._selected_window_titles.copy()
+
+    def _update_selected_windows_display(self) -> None:
+        """Update the display of selected windows."""
+        if not self._selected_window_titles:
+            self._selected_windows_label.hide()
+            return
+
+        # Show selected windows
+        count = len(self._selected_window_titles)
+        if count == 1:
+            text = f"Selected: {self._selected_window_titles[0]}"
+        else:
+            text = f"Selected {count} windows:\n" + "\n".join(
+                f"• {title}" for title in self._selected_window_titles
+            )
+
+        self._selected_windows_label.setText(text)
+        self._selected_windows_label.show()
+        logger.debug(f"Updated selected windows display: {count} window(s)")
+
     def _on_device_selected(self) -> None:
         """Handle device selection change."""
         selected_items = self._device_list.selectedItems()
         source_type = self._source_type_combo.currentData()
+
+        # Enable/disable add button based on selection
+        self._add_button.setEnabled(len(selected_items) > 0 and source_type != "")
 
         # Get list of selected device IDs
         selected_device_ids = [item.data(1) for item in selected_items]
@@ -352,9 +418,80 @@ class VideoInputWidget(QWidget):
         # Emit selection changed signal with all selected devices
         self.selection_changed.emit(selected_device_ids)
 
-        # For backward compatibility, emit device_selected for single selection
-        if len(selected_device_ids) == 1:
-            self.device_selected.emit(source_type, selected_device_ids[0])
+    def _on_add_clicked(self) -> None:
+        """Handle add button click."""
+        selected_items = self._device_list.selectedItems()
+        source_type = self._source_type_combo.currentData()
+
+        if not source_type:
+            logger.warning("No source type selected")
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(
+                self,
+                "No Source Type",
+                "Please select a source type (Screen Capture, UVC Device, or RTSP Stream).",
+            )
+            return
+
+        if not selected_items:
+            logger.warning("No device selected")
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(
+                self, "No Device Selected", "Please select at least one device from the list."
+            )
+            return
+
+        # Check if in Selected Windows mode and windows are selected
+        if self._selected_windows_radio.isChecked():
+            if not self._selected_window_titles:
+                logger.warning("No windows selected in Selected Windows mode")
+                from PySide6.QtWidgets import QMessageBox
+
+                QMessageBox.warning(
+                    self,
+                    "No Windows Selected",
+                    "Please click 'Select Windows...' to choose windows to capture.",
+                )
+                return
+
+        # Emit add_requested signal for each selected device
+        for item in selected_items:
+            device_id = item.data(1)
+            logger.info(f"Add requested: {device_id} (type: {source_type})")
+            self.add_requested.emit(source_type, device_id)
+
+    def _on_reset_clicked(self) -> None:
+        """Handle reset button click."""
+        logger.info("Reset button clicked - clearing all selections")
+
+        # Clear device list selection
+        self._device_list.clearSelection()
+
+        # Reset source type to default
+        self._source_type_combo.setCurrentIndex(0)  # "-- Select --"
+
+        # Clear selected window titles
+        self._selected_window_titles.clear()
+        self._update_selected_windows_display()
+
+        # Reset window capture mode to Full Screen (block signals to avoid affecting existing previews)
+        self._full_screen_radio.blockSignals(True)
+        self._active_window_radio.blockSignals(True)
+        self._selected_windows_radio.blockSignals(True)
+
+        self._full_screen_radio.setChecked(True)
+        self._select_windows_button.hide()
+
+        self._full_screen_radio.blockSignals(False)
+        self._active_window_radio.blockSignals(False)
+        self._selected_windows_radio.blockSignals(False)
+
+        # Disable add button
+        self._add_button.setEnabled(False)
+
+        logger.debug("Video input selections reset")
 
     def update_device_list(self, devices: list) -> None:
         """Update the device list with new devices.
@@ -409,14 +546,6 @@ class VideoInputWidget(QWidget):
         """
         return self._source_type_combo.currentData()
 
-    def get_fps(self) -> int:
-        """Get the current FPS setting.
-
-        Returns:
-            FPS value (1-240)
-        """
-        return self._fps_spinbox.value()
-
     def get_window_capture_mode(self) -> str:
         """Get the current window capture mode.
 
@@ -469,6 +598,9 @@ class AudioInputWidget(QWidget):
     # Signal emitted when a device is selected
     device_selected = Signal(str)  # device_id
 
+    # Signal emitted when add button is clicked
+    add_requested = Signal(str)  # device_id
+
     # Signal emitted when refresh is requested
     refresh_requested = Signal()
 
@@ -519,6 +651,19 @@ class AudioInputWidget(QWidget):
         self._device_list.itemSelectionChanged.connect(self._on_device_selected)
         group_layout.addWidget(self._device_list)
 
+        # Add button for audio input
+        self._add_button = QPushButton("Add to Preview")
+        self._add_button.setToolTip("Add selected audio device to preview")
+        self._add_button.clicked.connect(self._on_add_clicked)
+        self._add_button.setEnabled(False)  # Disabled until device is selected
+        group_layout.addWidget(self._add_button)
+
+        # Reset button for audio input
+        self._reset_button = QPushButton("Reset")
+        self._reset_button.setToolTip("Clear selection")
+        self._reset_button.clicked.connect(self._on_reset_clicked)
+        group_layout.addWidget(self._reset_button)
+
         # Add group box to main layout
         layout.addWidget(group_box)
 
@@ -533,14 +678,45 @@ class AudioInputWidget(QWidget):
         """Handle device selection change."""
         selected_items = self._device_list.selectedItems()
 
+        # Enable/disable add button based on selection
+        self._add_button.setEnabled(len(selected_items) > 0)
+
         if selected_items:
             device_id = selected_items[0].data(1)
             logger.debug(f"Audio device selected: {device_id}")
-            self.device_selected.emit(device_id)
             self.selection_changed.emit(device_id)
         else:
             logger.debug("Audio device selection cleared")
             self.selection_changed.emit("")
+
+    def _on_add_clicked(self) -> None:
+        """Handle add button click."""
+        selected_items = self._device_list.selectedItems()
+
+        if not selected_items:
+            logger.warning("No audio device selected")
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(
+                self, "No Device Selected", "Please select an audio device from the list."
+            )
+            return
+
+        device_id = selected_items[0].data(1)
+        logger.info(f"Audio add requested: {device_id}")
+        self.add_requested.emit(device_id)
+
+    def _on_reset_clicked(self) -> None:
+        """Handle reset button click."""
+        logger.info("Reset button clicked - clearing audio selection")
+
+        # Clear device list selection
+        self._device_list.clearSelection()
+
+        # Disable add button
+        self._add_button.setEnabled(False)
+
+        logger.debug("Audio input selection reset")
 
     def update_device_list(self, devices: list) -> None:
         """Update the device list with new devices.

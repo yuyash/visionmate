@@ -4,5 +4,13 @@
     "ms-python.vscode-pylance",
     "charliermarsh.ruff",
     "astral-sh.ty-vscode"
+  ],
+  "unwantedRecommendations": [
+    "ms-python.autopep8",
+    "ms-python.black-formatter",
+    "ms-python.flake8",
+    "ms-python.isort",
+    "ms-python.mypy",
+    "ms-python.pylint"
   ]
 }

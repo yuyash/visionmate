@@ -54,6 +54,9 @@ class PreviewContainer(QWidget):
     # Signal emitted when preview info is requested
     preview_info_requested = Signal(str)  # source_id
 
+    # Signal emitted when preview settings is requested
+    preview_settings_requested = Signal(str)  # source_id
+
     # Signal emitted for status bar updates
     status_message = Signal(str, int)  # message, timeout_ms
 
@@ -155,6 +158,7 @@ class PreviewContainer(QWidget):
 
         # Connect preview signals
         preview.close_requested.connect(self._on_preview_close_requested)
+        preview.settings_requested.connect(self._on_preview_settings_requested)
 
         # Store preview
         self._video_previews[source_id] = preview
@@ -332,6 +336,15 @@ class PreviewContainer(QWidget):
         logger.info(f"Close requested for preview: {source_id}")
         self.preview_close_requested.emit(source_id)
 
+    def _on_preview_settings_requested(self, source_id: str) -> None:
+        """Handle preview settings request.
+
+        Args:
+            source_id: Source identifier
+        """
+        logger.info(f"Settings requested for preview: {source_id}")
+        self.preview_settings_requested.emit(source_id)
+
     def get_preview_count(self) -> int:
         """Get the number of previews in the container.
 
@@ -431,12 +444,28 @@ class PreviewContainer(QWidget):
             f"device_id={device_id}, mode={window_capture_mode}"
         )
 
-        # Check if already capturing
-        if device_id in self._capture_manager:
-            logger.warning(f"Already capturing from device: {device_id}")
+        # For screen capture, create a unique device ID based on capture mode
+        # This allows multiple previews of the same screen with different modes
+        if source_type == "screen":
+            if window_capture_mode == "full_screen":
+                unique_device_id = f"{device_id}_fullscreen"
+            elif window_capture_mode == "active_window":
+                unique_device_id = f"{device_id}_activewindow"
+            elif window_capture_mode == "selected_windows":
+                # For selected windows mode, don't create preview yet
+                logger.info("Selected windows mode - waiting for window selection")
+                return
+            else:
+                unique_device_id = f"{device_id}_fullscreen"
+        else:
+            unique_device_id = device_id
+
+        # Check if already capturing with this exact configuration
+        if unique_device_id in self._capture_manager:
+            logger.warning(f"Already capturing from device with this mode: {unique_device_id}")
             return
 
-        # Track selected screen devices
+        # Track selected screen devices (use base device_id)
         if source_type == "screen":
             self._selected_screen_devices.add(device_id)
 
@@ -452,15 +481,11 @@ class PreviewContainer(QWidget):
                 elif window_capture_mode == "active_window":
                     capture_mode = WindowCaptureMode.ACTIVE_WINDOW
                     enable_window_detection = True
-                elif window_capture_mode == "selected_windows":
-                    # For selected windows mode, don't create preview yet
-                    logger.info("Selected windows mode - waiting for window selection")
-                    return
                 else:
                     capture_mode = WindowCaptureMode.FULL_SCREEN
                     enable_window_detection = False
 
-                # Start capture
+                # Start capture with base device_id
                 capture.start_capture(
                     device_id=device_id,
                     fps=fps,
@@ -478,18 +503,19 @@ class PreviewContainer(QWidget):
                 logger.error(f"Unknown source type: {source_type}")
                 return
 
-            # Add to video source manager
-            self._capture_manager.add_video_source(device_id, capture)
+            # Add to video source manager with unique device ID
+            self._capture_manager.add_video_source(unique_device_id, capture)
 
-            # Create and add preview
-            self.add_preview(device_id, capture)
+            # Create and add preview with unique device ID
+            self.add_preview(unique_device_id, capture)
 
-            logger.info(f"Started capture and preview for device: {device_id}")
+            logger.info(f"Started capture and preview for device: {unique_device_id}")
 
             # Emit status message for device selection
             try:
                 metadata = self._capture_manager.get_device_metadata(device_id)
-                self.status_message.emit(f"Selected: {metadata.name}", 3000)
+                mode_text = window_capture_mode.replace("_", " ").title()
+                self.status_message.emit(f"Added: {metadata.name} ({mode_text})", 3000)
             except Exception:
                 pass
 
@@ -497,12 +523,12 @@ class PreviewContainer(QWidget):
             logger.error(f"Error starting capture and preview: {e}", exc_info=True)
 
             # Cleanup on error
-            if device_id in self._capture_manager:
+            if unique_device_id in self._capture_manager:
                 try:
-                    capture = self._capture_manager.get_video_source(device_id)
+                    capture = self._capture_manager.get_video_source(unique_device_id)
                     if capture:
                         capture.stop_capture()
-                    self._capture_manager.remove_video_source(device_id)
+                    self._capture_manager.remove_video_source(unique_device_id)
                 except Exception:
                     pass
 
@@ -587,6 +613,10 @@ class PreviewContainer(QWidget):
     ) -> str:
         """Handle window capture mode change.
 
+        DEPRECATED: This method is no longer used with the new "Add to Preview" workflow.
+        Capture mode changes now only affect NEW previews, not existing ones.
+        Kept for backward compatibility.
+
         Args:
             mode: Capture mode
             selected_titles: List of selected window titles (unused, for compatibility)
@@ -594,35 +624,14 @@ class PreviewContainer(QWidget):
         Returns:
             Action to take: "show_selector", "wait", or "recreate"
         """
-        # Handle show_selector mode
+        # This method is deprecated and should not be called in the new workflow
+        logger.warning("handle_window_capture_mode_change called but is deprecated")
+
+        # Handle show_selector mode for backward compatibility
         if mode == "show_selector":
             return "show_selector"
 
-        # Handle selected_windows mode
-        if mode == "selected_windows":
-            self._close_all_window_previews()
-            self.status_message.emit("Click 'Select Windows...' to choose windows", 3000)
-            return "wait"
-
-        # For full_screen and active_window modes
-        # Close all existing screen previews (but keep selection)
-        all_device_ids = list(self._capture_manager.get_video_source_ids())
-        for device_id in all_device_ids:
-            if device_id.startswith("screen_"):
-                logger.info(f"Closing existing preview: {device_id}")
-                self.close_preview(device_id, keep_selection=True)
-
-        # Recreate previews with new mode
-        for device_id in self._selected_screen_devices:
-            self.start_capture_and_preview(
-                source_type="screen",
-                device_id=device_id,
-                fps=1,
-                window_capture_mode=mode,
-            )
-
-        self.status_message.emit(f"Capture mode: {mode.replace('_', ' ')}", 3000)
-        return "recreate"
+        return "wait"
 
     def _close_all_window_previews(self) -> None:
         """Close all window-specific previews."""
@@ -635,6 +644,82 @@ class PreviewContainer(QWidget):
         for device_id in window_device_ids:
             logger.info(f"Closing window preview: {device_id}")
             self.close_preview(device_id)
+
+    def show_window_selector(self, parent: QWidget) -> Optional[list[str]]:
+        """Show window selector dialog and return selected window titles.
+
+        Args:
+            parent: Parent widget for the dialog
+
+        Returns:
+            List of selected window titles, or None if cancelled
+        """
+        # Get base screen device from MainWindow's control container
+        # Import here to avoid circular dependency
+        from visionmate.desktop.main import MainWindow
+
+        if isinstance(parent, MainWindow):
+            if parent._control_container and parent._control_container._video_input_widget:
+                video_widget = parent._control_container._video_input_widget
+                selected_items = video_widget._device_list.selectedItems()
+
+                if not selected_items:
+                    logger.warning("No screen device selected for window selection")
+                    self.status_message.emit("Please select a screen device first", 3000)
+                    return None
+
+                # Get the first selected device
+                base_device_id = selected_items[0].data(1)
+            else:
+                logger.warning("Control container or video input widget not available")
+                self.status_message.emit("Please select a screen device first", 3000)
+                return None
+        else:
+            # Fallback to old behavior
+            if not self._selected_screen_devices:
+                logger.warning("No screen device selected for window selection")
+                self.status_message.emit("Please select a screen device first", 3000)
+                return None
+            base_device_id = next(iter(self._selected_screen_devices))
+
+        try:
+            # Create temporary capture to get available windows
+            temp_capture = ScreenCapture(device_manager=self._capture_manager.get_device_manager())
+            temp_capture.start_capture(device_id=base_device_id, fps=1)
+
+            available_windows = temp_capture.get_available_windows()
+            temp_capture.stop_capture()
+
+            if not available_windows:
+                logger.warning("No windows available for selection")
+                self.status_message.emit("No windows available for selection", 3000)
+                return None
+
+            # Get currently selected window titles from VideoInputWidget
+            # (This will be empty on first selection)
+            current_titles: list[str] = []
+
+            # Show dialog
+            from visionmate.desktop.dialogs import WindowSelectorDialog
+
+            dialog = WindowSelectorDialog(available_windows, current_titles, parent)
+
+            if not dialog.exec():
+                # Dialog cancelled
+                return None
+
+            selected_titles = dialog.get_selected_titles()
+            if not selected_titles:
+                self.status_message.emit("No windows selected", 3000)
+                return None
+
+            logger.info(f"Selected {len(selected_titles)} window(s)")
+            return selected_titles
+
+        except Exception as e:
+            logger.error(f"Error showing window selector: {e}", exc_info=True)
+            self.status_message.emit(f"Error: {e}", 5000)
+            return None
 
     def show_window_selector_and_create_captures(self, parent: QWidget) -> None:
         """Show window selector dialog and create captures for selected windows.
@@ -714,12 +799,8 @@ class PreviewContainer(QWidget):
         Returns:
             Number of windows successfully created
         """
-        # Close all existing screen previews first (but keep selection)
-        all_device_ids = list(self._capture_manager.get_video_source_ids())
-        for device_id in all_device_ids:
-            if device_id.startswith("screen_"):
-                logger.info(f"Closing existing preview: {device_id}")
-                self.close_preview(device_id, keep_selection=True)
+        # Note: With the new "Add to Preview" workflow, we don't close existing previews.
+        # Each preview is independent and users can have multiple previews with different modes.
 
         # Create previews for selected windows
         success_count = 0
@@ -772,11 +853,23 @@ class PreviewContainer(QWidget):
             Formatted device information text
         """
         try:
+            # Extract base device ID for special cases
+            base_device_id = source_id
+
             # For window-specific captures, extract base device ID
             if "_window_" in source_id:
                 base_device_id = source_id.split("_window_")[0]
-                metadata = self._capture_manager.get_device_metadata(base_device_id)
+            # For mode-specific captures, extract base device ID
+            elif "_fullscreen" in source_id:
+                base_device_id = source_id.replace("_fullscreen", "")
+            elif "_activewindow" in source_id:
+                base_device_id = source_id.replace("_activewindow", "")
 
+            # Get metadata using base device ID
+            metadata = self._capture_manager.get_device_metadata(base_device_id)
+
+            # For window-specific captures
+            if "_window_" in source_id:
                 # Get window title from capture
                 capture = self._capture_manager.get_video_source(source_id)
                 if capture and isinstance(capture, ScreenCapture):
@@ -789,9 +882,6 @@ class PreviewContainer(QWidget):
                 else:
                     return f"{metadata.name} - {metadata.resolution}"
             else:
-                # Regular device
-                metadata = self._capture_manager.get_device_metadata(source_id)
-
                 # Check if it's an audio device
                 if metadata.device_type.value == "audio":
                     return (

@@ -1167,6 +1167,23 @@ class ScreenCapture(VideoCaptureInterface):
         """
         return self._selected_window_titles.copy()
 
+    def get_fps(self) -> int:
+        """Get the current FPS setting.
+
+        Returns:
+            Current FPS value (1-60)
+        """
+        return self._fps
+
+    def set_fps(self, fps: int) -> None:
+        """Set the FPS (frames per second) for capture.
+
+        Args:
+            fps: Frame rate (1-60)
+        """
+        self._fps = max(1, min(fps, 60))
+        logger.info(f"FPS updated to: {self._fps}")
+
     def get_available_windows(self) -> list[WindowRegion]:
         """Get list of available windows on the current screen.
 

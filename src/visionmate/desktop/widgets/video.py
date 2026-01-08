@@ -43,6 +43,9 @@ class VideoPreviewWidget(QWidget):
     # Signal emitted when info button is clicked
     info_requested = Signal(str)  # source_id
 
+    # Signal emitted when settings button is clicked
+    settings_requested = Signal(str)  # source_id
+
     def __init__(
         self,
         source_id: str,
@@ -124,6 +127,28 @@ class VideoPreviewWidget(QWidget):
             """
         )
         overlay_layout.addWidget(self._info_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # Settings button (next to info button)
+        self._settings_button = QPushButton("⚙")
+        self._settings_button.setFixedSize(32, 32)
+        self._settings_button.setToolTip("Capture settings")
+        self._settings_button.clicked.connect(self._on_settings_clicked)
+        self._settings_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: rgba(0, 0, 0, 150);
+                color: white;
+                border: none;
+                border-radius: 16px;
+                font-size: 30px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 200);
+            }
+            """
+        )
+        overlay_layout.addWidget(self._settings_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
         # Spacer
         overlay_layout.addStretch()
@@ -322,6 +347,11 @@ class VideoPreviewWidget(QWidget):
                 )
         except Exception as e:
             logger.error(f"Error showing metadata tooltip: {e}", exc_info=True)
+
+    def _on_settings_clicked(self) -> None:
+        """Handle settings button click."""
+        logger.debug(f"Settings button clicked for source: {self._source_id}")
+        self.settings_requested.emit(self._source_id)
 
     def _get_metadata_text(self) -> str:
         """Get metadata text for display.
