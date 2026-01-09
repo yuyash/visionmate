@@ -7,7 +7,9 @@ input mode configuration, and event broadcasting.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from concurrent.futures import Future
 from typing import Callable, Optional
 
 from visionmate.core.capture.audio import AudioCaptureInterface, AudioMixer
@@ -20,6 +22,15 @@ from visionmate.core.models import (
     SessionState,
     VideoSourceConfig,
     VideoSourceType,
+)
+from visionmate.core.recognition import (
+    Question,
+    QuestionSegmenter,
+    QuestionState,
+    SpeechToTextInterface,
+    VLMClientInterface,
+    VLMRequest,
+    VLMResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,7 +60,162 @@ class SessionManager:
         self._callbacks: dict[str, list[Callable]] = {}
         self._video_source_configs: dict[str, VideoSourceConfig] = {}
         self._audio_source_config: Optional[AudioSourceConfig] = None
+
+        # VLM client and processing
+        self._vlm_client: Optional[VLMClientInterface] = None
+        self._processing_task: Optional[Future] = None  # type: ignore[type-arg]
+        self._processing_loop: Optional[asyncio.AbstractEventLoop] = None
+
+        # STT client and audio mode
+        self._stt_client: Optional[SpeechToTextInterface] = None
+        self._audio_mode: str = "direct"  # "direct" or "text"
+
+        # Question segmentation
+        self._question_segmenter = QuestionSegmenter()
+
         logger.info("SessionManager initialized")
+
+    # ========================================================================
+    # VLM Client Management
+    # ========================================================================
+
+    def set_vlm_client(self, client: VLMClientInterface) -> None:
+        """Set the VLM client to use for recognition.
+
+        Args:
+            client: VLM client instance
+
+        Raises:
+            RuntimeError: If session is active
+
+        Requirements: 5.1, 5.2, 5.5
+        """
+        if self._state == SessionState.ACTIVE:
+            raise RuntimeError("Cannot change VLM client while session is active")
+
+        self._vlm_client = client
+        logger.info(f"VLM client set: {client.__class__.__name__} ({client.client_type.value})")
+
+        # Register response callback for streaming clients
+        from visionmate.core.recognition import StreamingVLMClient
+
+        if isinstance(client, StreamingVLMClient):
+            client.register_response_callback(self._handle_vlm_response)
+            logger.info("Registered response callback for streaming VLM client")
+
+    def get_vlm_client(self) -> Optional[VLMClientInterface]:
+        """Get the current VLM client.
+
+        Returns:
+            VLM client instance or None if not set
+        """
+        return self._vlm_client
+
+    def has_vlm_client(self) -> bool:
+        """Check if VLM client is configured.
+
+        Returns:
+            True if VLM client is set
+        """
+        return self._vlm_client is not None
+
+    # ========================================================================
+    # STT Client Management
+    # ========================================================================
+
+    def set_stt_client(self, client: SpeechToTextInterface) -> None:
+        """Set the STT client to use for audio transcription.
+
+        Args:
+            client: STT client instance
+
+        Raises:
+            RuntimeError: If session is active
+
+        Requirements: 7.1, 7.2, 7.3, 7.4
+        """
+        if self._state == SessionState.ACTIVE:
+            raise RuntimeError("Cannot change STT client while session is active")
+
+        self._stt_client = client
+        logger.info(f"STT client set: {client.__class__.__name__} ({client.get_provider().value})")
+
+    def get_stt_client(self) -> Optional[SpeechToTextInterface]:
+        """Get the current STT client.
+
+        Returns:
+            STT client instance or None if not set
+        """
+        return self._stt_client
+
+    def has_stt_client(self) -> bool:
+        """Check if STT client is configured.
+
+        Returns:
+            True if STT client is set
+        """
+        return self._stt_client is not None
+
+    def set_audio_mode(self, mode: str) -> None:
+        """Set audio processing mode.
+
+        Args:
+            mode: Audio mode - "direct" or "text"
+
+        Raises:
+            RuntimeError: If session is active
+            ValueError: If mode is invalid
+
+        Requirements: 7.5, 7.6
+        """
+        if self._state == SessionState.ACTIVE:
+            raise RuntimeError("Cannot change audio mode while session is active")
+
+        if mode not in ("direct", "text"):
+            raise ValueError(f"Invalid audio mode: {mode}. Must be 'direct' or 'text'")
+
+        self._audio_mode = mode
+        logger.info(f"Audio mode set to: {mode}")
+
+    def get_audio_mode(self) -> str:
+        """Get current audio processing mode.
+
+        Returns:
+            Audio mode - "direct" or "text"
+        """
+        return self._audio_mode
+
+    # ========================================================================
+    # Question Segmentation
+    # ========================================================================
+
+    def get_question_segmenter(self) -> QuestionSegmenter:
+        """Get the question segmenter.
+
+        Returns:
+            QuestionSegmenter instance
+        """
+        return self._question_segmenter
+
+    def get_question_state(self) -> QuestionState:
+        """Get current question understanding state.
+
+        Returns:
+            Current QuestionState
+
+        Requirements: 8.1, 8.2, 8.3
+        """
+        return self._question_segmenter.get_current_state()
+
+    def get_current_question(self) -> Optional[Question]:
+        """Get current question being processed.
+
+        Returns:
+            Current Question object or None if no question is active
+
+        Requirements: 8.4
+        """
+        return self._question_segmenter.get_current_question()
 
     # ========================================================================
     # State Management
@@ -146,6 +312,12 @@ class SessionManager:
                     # Audio sources should already be started when added
                     logger.info("Audio sources ready")
 
+            # Start VLM processing if client is configured
+            if self._vlm_client:
+                self._start_vlm_processing()
+            else:
+                logger.warning("No VLM client configured - recognition disabled")
+
             # Transition to ACTIVE state
             self._state = SessionState.ACTIVE
             logger.info("Session started successfully")
@@ -155,6 +327,7 @@ class SessionManager:
             logger.error(f"Failed to start session: {e}", exc_info=True)
             # Clean up on failure
             self._cleanup_sources()
+            self._stop_vlm_processing()
             raise RuntimeError(f"Failed to start session: {e}") from e
 
     def stop(self) -> None:
@@ -172,6 +345,9 @@ class SessionManager:
         logger.info("Stopping session...")
 
         try:
+            # Stop VLM processing
+            self._stop_vlm_processing()
+
             # Stop all video sources
             self._capture_manager.stop_all_video_sources()
 
@@ -208,8 +384,27 @@ class SessionManager:
         logger.info("Resetting session (topic change)...")
 
         try:
-            # TODO: Notify VLM of topic change (will be implemented in VLM integration)
-            # TODO: Reset question segmenter (will be implemented in recognition module)
+            # Notify VLM of topic change
+            if self._vlm_client:
+                from visionmate.core.recognition import StreamingVLMClient
+
+                if isinstance(self._vlm_client, StreamingVLMClient):
+                    # For streaming clients, notify topic change asynchronously
+                    if self._processing_loop:
+                        asyncio.run_coroutine_threadsafe(
+                            self._vlm_client.notify_topic_change(),
+                            self._processing_loop,
+                        )
+                        logger.info("Notified VLM of topic change")
+                else:
+                    # For request-response clients, just log
+                    logger.info(
+                        "VLM client is request-response type, no topic change notification needed"
+                    )
+
+            # Reset question segmenter
+            self._question_segmenter.notify_topic_change()
+            logger.info("Reset question segmenter")
 
             logger.info("Session reset successfully")
             self._broadcast_event("session_reset", {})
@@ -528,9 +723,12 @@ class SessionManager:
             - video_source_removed: Video source removed (data: {"source_id": str})
             - audio_source_set: Audio source set (data: {"source_id": str, "config": AudioSourceConfig})
             - session_reset: Session reset (data: {})
+            - question_state_changed: Question state changed (data: {"state": QuestionState, "question": Question})
+            - question_detected: New question detected (data: {"question": str, "confidence": float, "timestamp": datetime})
+            - response_generated: VLM response generated (data: {"response": VLMResponse, ...})
             - error_occurred: Error occurred (data: {"error": str})
 
-        Requirements: 9.1-9.10
+        Requirements: 9.1-9.10, 21.4, 8.1, 8.2, 8.3, 8.4
         """
         if event not in self._callbacks:
             self._callbacks[event] = []
@@ -585,6 +783,247 @@ class SessionManager:
             AudioMixer instance
         """
         return self._audio_mixer
+
+    # ========================================================================
+    # VLM Processing
+    # ========================================================================
+
+    def _start_vlm_processing(self) -> None:
+        """Start VLM processing loop.
+
+        This method starts the async processing loop that sends frames and
+        audio to the VLM client and handles responses.
+
+        Requirements: 9.6, 21.1, 21.2, 21.3
+        """
+        if not self._vlm_client:
+            return
+
+        try:
+            # Create event loop for async processing
+            self._processing_loop = asyncio.new_event_loop()
+
+            # Start processing task
+            self._processing_task = asyncio.run_coroutine_threadsafe(
+                self._vlm_processing_loop(),
+                self._processing_loop,
+            )
+
+            # Start event loop in background thread
+            import threading
+
+            def run_loop():
+                if self._processing_loop:
+                    asyncio.set_event_loop(self._processing_loop)
+                    self._processing_loop.run_forever()
+
+            loop_thread = threading.Thread(target=run_loop, daemon=True)
+            loop_thread.start()
+
+            logger.info("VLM processing started")
+
+        except Exception as e:
+            logger.error(f"Failed to start VLM processing: {e}", exc_info=True)
+            raise
+
+    def _stop_vlm_processing(self) -> None:
+        """Stop VLM processing loop.
+
+        This method stops the async processing loop and disconnects from
+        the VLM client if it's a streaming client.
+        """
+        try:
+            # Cancel processing task
+            if self._processing_task and not self._processing_task.done():
+                self._processing_task.cancel()
+                try:
+                    self._processing_task.result()
+                except Exception:
+                    pass
+
+            # Disconnect streaming client
+            if self._vlm_client:
+                from visionmate.core.recognition import StreamingVLMClient
+
+                if isinstance(self._vlm_client, StreamingVLMClient):
+                    if self._processing_loop:
+                        future = asyncio.run_coroutine_threadsafe(
+                            self._vlm_client.disconnect(),
+                            self._processing_loop,
+                        )
+                        try:
+                            future.result(timeout=2.0)
+                        except Exception as e:
+                            logger.warning(f"Error disconnecting VLM client: {e}")
+
+            # Stop event loop
+            if self._processing_loop and self._processing_loop.is_running():
+                self._processing_loop.call_soon_threadsafe(self._processing_loop.stop)
+
+            self._processing_task = None
+            self._processing_loop = None
+
+            logger.info("VLM processing stopped")
+
+        except Exception as e:
+            logger.error(f"Error stopping VLM processing: {e}", exc_info=True)
+
+    async def _vlm_processing_loop(self) -> None:
+        """Main VLM processing loop.
+
+        This async method runs continuously while the session is active,
+        collecting frames and audio from capture sources and sending them
+        to the VLM client. If audio mode is "text", audio is transcribed
+        using the STT client before being sent to the VLM.
+
+        Requirements: 9.6, 9.7, 21.1, 21.2, 21.3, 7.1, 7.2, 7.5, 7.6
+        """
+        if not self._vlm_client:
+            return
+
+        try:
+            # Connect streaming client
+            from visionmate.core.recognition import StreamingVLMClient
+
+            if isinstance(self._vlm_client, StreamingVLMClient):
+                await self._vlm_client.connect()
+                logger.info("Connected to streaming VLM client")
+
+            # Processing loop
+            while self._state == SessionState.ACTIVE:
+                try:
+                    # Collect frames from all video sources
+                    frames = []
+                    if self._input_mode in (InputMode.VIDEO_AUDIO, InputMode.VIDEO_ONLY):
+                        for source_id in self._video_source_configs.keys():
+                            capture = self._capture_manager.get_video_source(source_id)
+                            if capture and capture.is_capturing():
+                                frame = capture.get_frame()
+                                if frame:
+                                    frames.append(frame)
+
+                    # Collect audio from mixer
+                    audio = None
+                    text = None
+                    if self._input_mode in (InputMode.VIDEO_AUDIO, InputMode.AUDIO_ONLY):
+                        audio = self._audio_mixer.get_mixed_chunk()
+
+                        # Convert audio to text if needed
+                        if audio and self._audio_mode == "text" and self._stt_client:
+                            try:
+                                text = await self._stt_client.transcribe(audio)
+                                logger.debug(f"Transcribed audio to text: {text[:50]}...")
+                                # Clear audio since we're using text instead
+                                audio = None
+                            except Exception as e:
+                                logger.error(f"Error transcribing audio: {e}", exc_info=True)
+                                # Continue with audio if transcription fails
+                                pass
+
+                    # Feed input to question segmenter
+                    question = self._question_segmenter.update(
+                        frames=frames if frames else None,
+                        audio=audio,
+                        text=text,
+                    )
+
+                    # Broadcast question state changes
+                    current_state = self._question_segmenter.get_current_state()
+                    self._broadcast_event(
+                        "question_state_changed",
+                        {
+                            "state": current_state,
+                            "question": question,
+                        },
+                    )
+
+                    # If new question detected, broadcast it
+                    if question:
+                        logger.info(f"New question detected: {question.text}")
+                        self._broadcast_event(
+                            "question_detected",
+                            {
+                                "question": question.text,
+                                "confidence": question.confidence,
+                                "timestamp": question.timestamp,
+                            },
+                        )
+
+                    # Send to VLM client
+                    if isinstance(self._vlm_client, StreamingVLMClient):
+                        # Streaming client: send frames and audio/text individually
+                        for frame in frames:
+                            await self._vlm_client.send_frame(frame)
+
+                        if audio:
+                            await self._vlm_client.send_audio_chunk(audio)
+
+                        if text:
+                            await self._vlm_client.send_text(text)
+
+                    else:
+                        # Request-response client: batch process
+                        from visionmate.core.recognition import RequestResponseVLMClient
+
+                        if frames or audio or text:
+                            if isinstance(self._vlm_client, RequestResponseVLMClient):
+                                request = VLMRequest(
+                                    frames=frames,
+                                    audio=audio,
+                                    text=text,
+                                )
+                                response = await self._vlm_client.process_multimodal_input(request)
+                                self._handle_vlm_response(response)
+
+                    # Small delay to avoid busy-waiting
+                    await asyncio.sleep(0.1)
+
+                except asyncio.CancelledError:
+                    logger.info("VLM processing loop cancelled")
+                    break
+                except Exception as e:
+                    logger.error(f"Error in VLM processing loop: {e}", exc_info=True)
+                    # Continue processing despite errors
+                    await asyncio.sleep(1.0)
+
+        except Exception as e:
+            logger.error(f"Fatal error in VLM processing loop: {e}", exc_info=True)
+            self._broadcast_event("error_occurred", {"error": str(e)})
+
+    def _handle_vlm_response(self, response: VLMResponse) -> None:
+        """Handle VLM response.
+
+        This method is called when a response is received from the VLM client.
+        It broadcasts the response to registered callbacks.
+
+        Args:
+            response: VLM response object
+
+        Requirements: 21.4
+        """
+        try:
+            logger.info(
+                f"VLM response received: question={response.question}, "
+                f"answer={response.direct_answer[:50] if response.direct_answer else None}..."
+            )
+
+            # Broadcast response event
+            self._broadcast_event(
+                "response_generated",
+                {
+                    "response": response,
+                    "question": response.question,
+                    "answer": response.direct_answer,
+                    "follow_ups": response.follow_up_questions,
+                    "supplementary": response.supplementary_info,
+                    "confidence": response.confidence,
+                    "timestamp": response.timestamp,
+                    "is_partial": response.is_partial,
+                },
+            )
+
+        except Exception as e:
+            logger.error(f"Error handling VLM response: {e}", exc_info=True)
 
     # ========================================================================
     # Cleanup
