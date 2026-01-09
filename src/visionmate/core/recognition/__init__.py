@@ -2,6 +2,11 @@
 
 from visionmate.core.recognition.openai_compatible import OpenAICompatibleClient
 from visionmate.core.recognition.openai_realtime import OpenAIRealtimeClient
+from visionmate.core.recognition.question_segmenter import (
+    Question,
+    QuestionSegmenter,
+    QuestionState,
+)
 from visionmate.core.recognition.stt import CloudSTT, SpeechToTextInterface, WhisperSTT
 from visionmate.core.recognition.vlm_client import (
     RequestResponseVLMClient,
@@ -24,4 +29,7 @@ __all__ = [
     "SpeechToTextInterface",
     "WhisperSTT",
     "CloudSTT",
+    "Question",
+    "QuestionSegmenter",
+    "QuestionState",
 ]
