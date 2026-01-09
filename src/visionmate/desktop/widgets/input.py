@@ -141,7 +141,7 @@ class VideoInputWidget(QWidget):
         self._device_list = QListWidget()
         self._device_list.setFrameShape(QListWidget.Shape.NoFrame)
         self._device_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
-        self._device_list.setMinimumHeight(150)  # Set minimum height to prevent layout changes
+        self._device_list.setMaximumHeight(72)
         # Global stylesheet handles list widget styling
         self._device_list.itemSelectionChanged.connect(self._on_device_selected)
         group_layout.addWidget(self._device_list)
