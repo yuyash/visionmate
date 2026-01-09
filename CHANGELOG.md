@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/yuyash/visionmate/compare/v1.2.0...v1.3.0) (2026-01-09)
+
+
+### Features
+
+* Add ActionContainer with text input and reorganize UI layout ([#32](https://github.com/yuyash/visionmate/issues/32)) ([34b70cf](https://github.com/yuyash/visionmate/commit/34b70cf5a6bd59898b0566ef7df999832a168458))
+
 ## [1.2.0](https://github.com/yuyash/visionmate/compare/v1.1.0...v1.2.0) (2026-01-09)
 
 
