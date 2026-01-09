@@ -5,7 +5,7 @@ This module provides the main application window with delegated control
 and preview management.
 """
 
-import logging
+from logging import Logger, getLogger
 from typing import Optional
 
 from PySide6.QtCore import Qt
@@ -18,18 +18,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from visionmate.__main__ import APP_NAME, APP_VERSION
+from visionmate.core import AppSettings
 from visionmate.core.capture.manager import CaptureManager
 from visionmate.core.models import WindowGeometry
+from visionmate.core.session import SessionManager
 from visionmate.core.settings import SettingsManager
 from visionmate.desktop.dialogs import AboutDialog
 from visionmate.desktop.widgets import (
+    ActionContainer,
     ControlContainer,
     PreviewContainer,
-    ResponseWidget,
-    SessionControlWidget,
 )
 
-logger = logging.getLogger(__name__)
+logger: Logger = getLogger(name=__name__)
 
 
 class MainWindow(QMainWindow):
@@ -38,6 +40,7 @@ class MainWindow(QMainWindow):
     Provides the primary user interface with:
     - Control panel on the left (collapsible)
     - Preview area in the center
+    - Action panel on the right (collapsible)
     - Status bar at the bottom
     - Menu bar at the top
     """
@@ -51,34 +54,27 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         logger.info("Initializing MainWindow")
 
-        # Store app info for About dialog
-        from visionmate.__main__ import APP_NAME, APP_VERSION
+        self._app_name: str = APP_NAME
+        self._app_version: str = APP_VERSION
 
-        self.setWindowTitle(f"{APP_NAME.capitalize()} v{APP_VERSION}")
-        self.setMinimumSize(1024, 768)
-
-        self._app_name = APP_NAME
-        self._app_version = APP_VERSION
+        self.setWindowTitle(f"{self._app_name.capitalize()} v{self._app_version}")
+        self.setMinimumSize(1200, 800)
 
         # Settings manager
         self._settings_manager = SettingsManager()
-        self._settings = self._settings_manager.load_settings()
+        self._settings: AppSettings = self._settings_manager.load_settings()
         logger.info("Settings loaded successfully")
 
         # Capture manager
         self._capture_manager = CaptureManager()
-
-        # Session manager
-        from visionmate.core.session import SessionManager
-
         self._session_manager = SessionManager()
 
         # Control and preview containers
         self._control_container: Optional[ControlContainer] = None
         self._preview_container: Optional[PreviewContainer] = None
-        self._response_widget: Optional[ResponseWidget] = None
-        self._drawer_button: Optional[QPushButton] = None
-        self._session_control_widget: Optional[SessionControlWidget] = None
+        self._action_container: Optional[ActionContainer] = None
+        self._control_drawer_button: Optional[QPushButton] = None
+        self._action_drawer_button: Optional[QPushButton] = None
 
         # Setup UI components
         self._setup_menu_bar()
@@ -94,10 +90,7 @@ class MainWindow(QMainWindow):
         logger.info("MainWindow initialized successfully")
 
     def _apply_settings(self) -> None:
-        """Apply loaded settings to components.
-
-        Requirements: 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7
-        """
+        """Apply loaded settings to components."""
         logger.info("Applying settings to components")
 
         try:
@@ -114,22 +107,12 @@ class MainWindow(QMainWindow):
                 self._control_container._input_mode_widget.set_mode(self._settings.input_mode)
                 logger.debug(f"Applied input mode: {self._settings.input_mode.value}")
 
-            # Note: FPS is now configured per-preview via settings dialog
-            # Note: Preview layout settings will be applied when preview container is enhanced
-            # Note: Video and audio sources are not automatically restored on startup
-            # Users must manually select devices each time they launch the application
-            # This is intentional to avoid issues with devices that may not be available
-
             logger.info("Settings applied successfully")
-
         except Exception as e:
             logger.error(f"Error applying settings: {e}", exc_info=True)
 
     def _save_settings(self) -> None:
-        """Save current settings to storage.
-
-        Requirements: 29.1
-        """
+        """Save current settings to storage."""
         try:
             # Update window geometry
             geom = self.geometry()
@@ -207,10 +190,7 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def _show_settings_dialog(self) -> None:
-        """Show the Settings dialog.
-
-        Requirements: 15.1
-        """
+        """Show the Settings dialog."""
         logger.debug("Showing Settings dialog")
 
         from visionmate.desktop.dialogs import SettingsDialog
@@ -231,38 +211,35 @@ class MainWindow(QMainWindow):
             logger.debug("Settings dialog cancelled")
 
     def _setup_central_widget(self) -> None:
-        """Setup the central widget with control panel and preview area.
-
-        Requirements: 10.4, 10.5, 10.6, 10.7, 10.8
-        """
+        """Setup the central widget with control panel, preview area, and action panel."""
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Create main horizontal layout (left: control panel, right: session + preview + response)
+        # Create main horizontal layout (left: control, center: preview, right: action)
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Left side: Control container (full height)
+        # Left side: Control container
         self._control_container = ControlContainer(
             capture_manager=self._capture_manager,
             parent=self,
         )
         main_layout.addWidget(self._control_container)
 
-        # Drawer toggle button container
-        drawer_container = QWidget()
-        drawer_layout = QVBoxLayout(drawer_container)
-        drawer_layout.setContentsMargins(0, 0, 0, 0)
-        drawer_layout.setSpacing(0)
-        drawer_layout.addStretch()
+        # Control drawer toggle button container
+        control_drawer_container = QWidget()
+        control_drawer_layout = QVBoxLayout(control_drawer_container)
+        control_drawer_layout.setContentsMargins(0, 0, 0, 0)
+        control_drawer_layout.setSpacing(0)
+        control_drawer_layout.addStretch()
 
-        self._drawer_button = QPushButton("◀")
-        self._drawer_button.setFixedSize(10, 72)
-        self._drawer_button.setToolTip("Toggle control panel")
-        self._drawer_button.clicked.connect(self._toggle_control_panel)
-        self._drawer_button.setStyleSheet(
+        self._control_drawer_button = QPushButton("◀")
+        self._control_drawer_button.setFixedSize(10, 72)
+        self._control_drawer_button.setToolTip("Toggle control panel")
+        self._control_drawer_button.clicked.connect(self._toggle_control_panel)
+        self._control_drawer_button.setStyleSheet(
             """
             QPushButton {
                 border-radius: 4px;
@@ -271,55 +248,80 @@ class MainWindow(QMainWindow):
             }
             """
         )
-        drawer_layout.addWidget(self._drawer_button, alignment=Qt.AlignmentFlag.AlignCenter)
-        drawer_layout.addStretch()
+        control_drawer_layout.addWidget(
+            self._control_drawer_button, alignment=Qt.AlignmentFlag.AlignCenter
+        )
+        control_drawer_layout.addStretch()
 
-        main_layout.addWidget(drawer_container)
+        main_layout.addWidget(control_drawer_container)
 
-        # Right side: Vertical stack of session control, preview, and response
-        right_side_widget = QWidget()
-        right_side_layout = QVBoxLayout(right_side_widget)
-        right_side_layout.setContentsMargins(0, 8, 8, 0)  # Add top and right margins
-        right_side_layout.setSpacing(8)
-
-        # Session control widget at the top
-        self._session_control_widget = SessionControlWidget()
-        right_side_layout.addWidget(self._session_control_widget)
-
-        # Horizontal split: Preview container on left, Response widget on right
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(8)
-
-        # Preview container (takes 60% of width)
+        # Center: Preview container
         self._preview_container = PreviewContainer(
             capture_manager=self._capture_manager,
             parent=self,
         )
-        content_layout.addWidget(self._preview_container, stretch=3)
+        main_layout.addWidget(self._preview_container, stretch=1)
 
-        # Response widget (takes 40% of width)
-        self._response_widget = ResponseWidget(parent=self)
-        content_layout.addWidget(self._response_widget, stretch=2)
+        # Action drawer toggle button container
+        action_drawer_container = QWidget()
+        action_drawer_layout = QVBoxLayout(action_drawer_container)
+        action_drawer_layout.setContentsMargins(0, 0, 0, 0)
+        action_drawer_layout.setSpacing(0)
+        action_drawer_layout.addStretch()
 
-        right_side_layout.addLayout(content_layout, stretch=1)
+        self._action_drawer_button = QPushButton("▶")
+        self._action_drawer_button.setFixedSize(10, 72)
+        self._action_drawer_button.setToolTip("Toggle action panel")
+        self._action_drawer_button.clicked.connect(self._toggle_action_panel)
+        self._action_drawer_button.setStyleSheet(
+            """
+            QPushButton {
+                border-radius: 4px;
+                font-size: 10px;
+                padding: 0px;
+            }
+            """
+        )
+        action_drawer_layout.addWidget(
+            self._action_drawer_button, alignment=Qt.AlignmentFlag.AlignCenter
+        )
+        action_drawer_layout.addStretch()
 
-        main_layout.addWidget(right_side_widget, stretch=1)
+        main_layout.addWidget(action_drawer_container)
+
+        # Right side: Action container
+        self._action_container = ActionContainer(parent=self)
+        main_layout.addWidget(self._action_container)
 
         logger.debug("Central widget setup complete")
 
     def _toggle_control_panel(self) -> None:
         """Toggle the visibility of the control panel."""
-        if not self._control_container or not self._drawer_button:
+        if not self._control_container or not self._control_drawer_button:
             return
 
         if self._control_container.isVisible():
             self._control_container.hide()
-            self._drawer_button.setText("▶")
+            self._control_drawer_button.setText("▶")
             logger.debug("Control panel hidden")
         else:
             self._control_container.show()
-            self._drawer_button.setText("◀")
+            self._control_drawer_button.setText("◀")
             logger.debug("Control panel shown")
+
+    def _toggle_action_panel(self) -> None:
+        """Toggle the visibility of the action panel."""
+        if not self._action_container or not self._action_drawer_button:
+            return
+
+        if self._action_container.isVisible():
+            self._action_container.hide()
+            self._action_drawer_button.setText("◀")
+            logger.debug("Action panel hidden")
+        else:
+            self._action_container.show()
+            self._action_drawer_button.setText("▶")
+            logger.debug("Action panel shown")
 
     def _setup_status_bar(self) -> None:
         """Setup the status bar."""
@@ -328,10 +330,7 @@ class MainWindow(QMainWindow):
         logger.debug("Status bar setup complete")
 
     def _connect_signals(self) -> None:
-        """Connect widget signals to handlers.
-
-        Requirements: 9.4, 1.7, 9.1, 9.2, 9.3
-        """
+        """Connect widget signals to handlers."""
         if self._control_container:
             # Connect control container signals
             self._control_container.source_type_changed.connect(self._on_source_type_changed)
@@ -361,11 +360,13 @@ class MainWindow(QMainWindow):
             # Connect status message signal
             self._preview_container.status_message.connect(self._update_status_bar)
 
-        if self._session_control_widget is not None:
-            # Connect session control signals
-            self._session_control_widget.start_requested.connect(self._on_start_requested)
-            self._session_control_widget.stop_requested.connect(self._on_stop_requested)
-            self._session_control_widget.reset_requested.connect(self._on_reset_requested)
+        if self._action_container is not None:
+            # Connect action container signals
+            self._action_container.start_requested.connect(self._on_start_requested)
+            self._action_container.stop_requested.connect(self._on_stop_requested)
+            self._action_container.reset_requested.connect(self._on_reset_requested)
+            self._action_container.request_submitted.connect(self._on_request_submitted)
+            self._action_container.status_message.connect(self._update_status_bar)
 
         # Connect session manager callbacks
         self._session_manager.register_callback("state_changed", self._on_session_state_changed)
@@ -399,8 +400,6 @@ class MainWindow(QMainWindow):
         Args:
             source_type: Type of source ("screen", "uvc", "rtsp")
             device_id: Device identifier
-
-        Requirements: 9.4, 1.7, 11.6, 28.9
         """
         logger.info(f"Device selected: {device_id} (type: {source_type})")
 
@@ -498,8 +497,6 @@ class MainWindow(QMainWindow):
 
         Args:
             source_id: Source identifier
-
-        Requirements: 11.9
         """
         logger.info(f"Close requested for preview: {source_id}")
 
@@ -616,15 +613,22 @@ class MainWindow(QMainWindow):
             logger.error(f"Error handling audio device selection: {e}", exc_info=True)
             self.statusBar().showMessage(f"Error: {e}", 5000)
 
+    def _on_request_submitted(self, request_text: str) -> None:
+        """Handle request text submission.
+
+        Args:
+            request_text: Submitted text instructions
+        """
+        logger.info(f"Request submitted: {request_text[:50]}...")
+        # TODO: Integrate text instructions with session manager
+        self.statusBar().showMessage(f"Request received: {request_text[:50]}...", 3000)
+
     # ========================================================================
     # Session Control Handlers
     # ========================================================================
 
     def _on_start_requested(self) -> None:
-        """Handle Start button click.
-
-        Requirements: 9.1, 9.6
-        """
+        """Handle Start button click."""
         logger.info("Start session requested")
 
         try:
@@ -668,10 +672,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Failed to start: {e}", 5000)
 
     def _on_stop_requested(self) -> None:
-        """Handle Stop button click.
-
-        Requirements: 9.2, 9.7
-        """
+        """Handle Stop button click."""
         logger.info("Stop session requested")
 
         try:
@@ -685,10 +686,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Failed to stop: {e}", 5000)
 
     def _on_reset_requested(self) -> None:
-        """Handle Reset button click.
-
-        Requirements: 9.3, 9.8
-        """
+        """Handle Reset button click."""
         logger.info("Reset session requested")
 
         try:
@@ -706,8 +704,6 @@ class MainWindow(QMainWindow):
 
         Args:
             data: Event data containing "state" key
-
-        Requirements: 9.5, 9.9, 9.10
         """
         from visionmate.core.models import SessionState
 
@@ -717,9 +713,11 @@ class MainWindow(QMainWindow):
 
         logger.info(f"Session state changed: {state.value}")
 
-        # Update session control widget
-        if self._session_control_widget:
-            self._session_control_widget.set_session_state(state)
+        # Update session control widget via action container
+        if self._action_container:
+            session_control = self._action_container.get_session_control_widget()
+            if session_control:
+                session_control.set_session_state(state)
 
         # Update control container (enable/disable device selection)
         if self._control_container:
@@ -751,17 +749,17 @@ class MainWindow(QMainWindow):
 
         Args:
             data: Event data containing "question", "confidence", "timestamp"
-
-        Requirements: 8.4, 14.1, 21.4
         """
         question = data.get("question", "")
         confidence = data.get("confidence", 0.0)
 
         logger.info(f"Question detected: {question} (confidence: {confidence:.2f})")
 
-        # Update response widget with current question
-        if self._response_widget:
-            self._response_widget.set_current_question(question)
+        # Update response widget via action container
+        if self._action_container:
+            response_widget = self._action_container.get_response_widget()
+            if response_widget:
+                response_widget.set_current_question(question)
 
         # Update status bar
         self.statusBar().showMessage(f"Question detected: {question[:50]}...", 3000)
@@ -771,8 +769,6 @@ class MainWindow(QMainWindow):
 
         Args:
             data: Event data containing "response" and other fields
-
-        Requirements: 14.1, 14.2, 14.3, 14.4, 21.4
         """
         from visionmate.core.recognition import VLMResponse
 
@@ -785,9 +781,11 @@ class MainWindow(QMainWindow):
             f"Response generated: answer={response.direct_answer[:50] if response.direct_answer else None}..."
         )
 
-        # Update response widget with current response
-        if self._response_widget:
-            self._response_widget.set_current_response(response)
+        # Update response widget via action container
+        if self._action_container:
+            response_widget = self._action_container.get_response_widget()
+            if response_widget:
+                response_widget.set_current_response(response)
 
         # Update status bar
         if response.is_partial:
@@ -800,25 +798,26 @@ class MainWindow(QMainWindow):
 
         Args:
             data: Event data (empty for reset)
-
-        Requirements: 9.3, 9.8
         """
         logger.info("Session reset - clearing current question and response")
 
-        # Clear current question and response (but keep history)
-        if self._response_widget:
-            self._response_widget.clear_current_question()
-            self._response_widget.clear_current_response()
+        # Clear current question and response via action container
+        if self._action_container:
+            response_widget = self._action_container.get_response_widget()
+            if response_widget:
+                response_widget.clear_current_question()
+                response_widget.clear_current_response()
 
         # Update status bar
         self.statusBar().showMessage("Session reset - ready for new question", 3000)
 
     def _update_session_control_state(self) -> None:
-        """Update session control widget based on device selection.
+        """Update session control widget based on device selection."""
+        if not self._action_container:
+            return
 
-        Requirements: 9.5
-        """
-        if not self._session_control_widget:
+        session_control = self._action_container.get_session_control_widget()
+        if not session_control:
             return
 
         # Check if we have any devices selected
@@ -826,14 +825,12 @@ class MainWindow(QMainWindow):
         has_audio = self._capture_manager.get_audio_source_count() > 0
         has_devices = has_video or has_audio
 
-        self._session_control_widget.set_has_devices(has_devices)
+        session_control.set_has_devices(has_devices)
 
     def closeEvent(self, event) -> None:
         """Handle window close event.
 
         Save settings before closing.
-
-        Requirements: 29.1
         """
         logger.info("Closing main window")
 

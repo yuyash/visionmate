@@ -9,7 +9,7 @@ from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QHBoxLayout,
+    QLabel,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -57,8 +57,18 @@ class SessionControlWidget(QWidget):
 
     def _setup_ui(self) -> None:
         """Setup the UI components."""
-        # Create button layout (no group box)
-        button_layout = QHBoxLayout()
+        # Create main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(8)
+
+        # Add title label
+        title_label = QLabel("Session Control")
+        title_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        main_layout.addWidget(title_label)
+
+        # Create button layout (vertical stack)
+        button_layout = QVBoxLayout()
         button_layout.setSpacing(8)
 
         # Create Start button
@@ -79,9 +89,6 @@ class SessionControlWidget(QWidget):
         self._reset_button.clicked.connect(self._on_reset_clicked)
         button_layout.addWidget(self._reset_button)
 
-        # Create main layout
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addLayout(button_layout)
 
         logger.debug("SessionControlWidget UI setup complete")
