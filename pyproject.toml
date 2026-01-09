@@ -15,6 +15,7 @@ dependencies = [
     "pytest",
     "pytest-cov",
     "pytest-qt",
+    "pytest-asyncio",
     "pre-commit",
     "hypothesis>=6.0.0",
     # Core capture dependencies
@@ -29,6 +30,7 @@ dependencies = [
     "uvicorn>=0.34.0",
     # VLM dependencies
     "openai>=1.59.0",
+    "pillow>=11.0.0",
     # Security dependencies
     "keyring>=25.5.0",
     # Internationalization dependencies
