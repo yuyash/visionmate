@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/yuyash/visionmate/compare/v1.1.0...v1.2.0) (2026-01-09)
+
+
+### Features
+
+* add VLM client, set and response widget ([#29](https://github.com/yuyash/visionmate/issues/29)) ([17de82a](https://github.com/yuyash/visionmate/commit/17de82adfc9bcd6baf67f20b843f8a356ee37867))
+
 ## [1.1.0](https://github.com/yuyash/visionmate/compare/v1.0.0...v1.1.0) (2026-01-08)
 
 
