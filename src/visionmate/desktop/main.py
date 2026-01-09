@@ -22,7 +22,12 @@ from visionmate.core.capture.manager import CaptureManager
 from visionmate.core.models import WindowGeometry
 from visionmate.core.settings import SettingsManager
 from visionmate.desktop.dialogs import AboutDialog
-from visionmate.desktop.widgets import ControlContainer, PreviewContainer, SessionControlWidget
+from visionmate.desktop.widgets import (
+    ControlContainer,
+    PreviewContainer,
+    ResponseWidget,
+    SessionControlWidget,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +76,7 @@ class MainWindow(QMainWindow):
         # Control and preview containers
         self._control_container: Optional[ControlContainer] = None
         self._preview_container: Optional[PreviewContainer] = None
+        self._response_widget: Optional[ResponseWidget] = None
         self._drawer_button: Optional[QPushButton] = None
         self._session_control_widget: Optional[SessionControlWidget] = None
 
@@ -227,13 +233,13 @@ class MainWindow(QMainWindow):
     def _setup_central_widget(self) -> None:
         """Setup the central widget with control panel and preview area.
 
-        Requirements: 10.4, 10.5, 10.6, 10.7
+        Requirements: 10.4, 10.5, 10.6, 10.7, 10.8
         """
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Create main horizontal layout (left: control panel, right: session + preview)
+        # Create main horizontal layout (left: control panel, right: session + preview + response)
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -270,7 +276,7 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(drawer_container)
 
-        # Right side: Vertical stack of session control and preview
+        # Right side: Vertical stack of session control, preview, and response
         right_side_widget = QWidget()
         right_side_layout = QVBoxLayout(right_side_widget)
         right_side_layout.setContentsMargins(0, 8, 8, 0)  # Add top and right margins
@@ -280,12 +286,22 @@ class MainWindow(QMainWindow):
         self._session_control_widget = SessionControlWidget()
         right_side_layout.addWidget(self._session_control_widget)
 
-        # Preview container below (takes remaining space)
+        # Horizontal split: Preview container on left, Response widget on right
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(8)
+
+        # Preview container (takes 60% of width)
         self._preview_container = PreviewContainer(
             capture_manager=self._capture_manager,
             parent=self,
         )
-        right_side_layout.addWidget(self._preview_container, stretch=1)
+        content_layout.addWidget(self._preview_container, stretch=3)
+
+        # Response widget (takes 40% of width)
+        self._response_widget = ResponseWidget(parent=self)
+        content_layout.addWidget(self._response_widget, stretch=2)
+
+        right_side_layout.addLayout(content_layout, stretch=1)
 
         main_layout.addWidget(right_side_widget, stretch=1)
 
@@ -354,6 +370,9 @@ class MainWindow(QMainWindow):
         # Connect session manager callbacks
         self._session_manager.register_callback("state_changed", self._on_session_state_changed)
         self._session_manager.register_callback("error_occurred", self._on_session_error)
+        self._session_manager.register_callback("question_detected", self._on_question_detected)
+        self._session_manager.register_callback("response_generated", self._on_response_generated)
+        self._session_manager.register_callback("session_reset", self._on_session_reset)
 
         logger.debug("Signals connected")
 
@@ -726,6 +745,73 @@ class MainWindow(QMainWindow):
         error = data.get("error", "Unknown error")
         logger.error(f"Session error: {error}")
         self.statusBar().showMessage(f"Session error: {error}", 5000)
+
+    def _on_question_detected(self, data: dict) -> None:
+        """Handle question detected event.
+
+        Args:
+            data: Event data containing "question", "confidence", "timestamp"
+
+        Requirements: 8.4, 14.1, 21.4
+        """
+        question = data.get("question", "")
+        confidence = data.get("confidence", 0.0)
+
+        logger.info(f"Question detected: {question} (confidence: {confidence:.2f})")
+
+        # Update response widget with current question
+        if self._response_widget:
+            self._response_widget.set_current_question(question)
+
+        # Update status bar
+        self.statusBar().showMessage(f"Question detected: {question[:50]}...", 3000)
+
+    def _on_response_generated(self, data: dict) -> None:
+        """Handle response generated event.
+
+        Args:
+            data: Event data containing "response" and other fields
+
+        Requirements: 14.1, 14.2, 14.3, 14.4, 21.4
+        """
+        from visionmate.core.recognition import VLMResponse
+
+        response = data.get("response")
+        if not isinstance(response, VLMResponse):
+            logger.warning("Invalid response object in event data")
+            return
+
+        logger.info(
+            f"Response generated: answer={response.direct_answer[:50] if response.direct_answer else None}..."
+        )
+
+        # Update response widget with current response
+        if self._response_widget:
+            self._response_widget.set_current_response(response)
+
+        # Update status bar
+        if response.is_partial:
+            self.statusBar().showMessage("Receiving response...", 1000)
+        else:
+            self.statusBar().showMessage("Response received", 3000)
+
+    def _on_session_reset(self, data: dict) -> None:
+        """Handle session reset event.
+
+        Args:
+            data: Event data (empty for reset)
+
+        Requirements: 9.3, 9.8
+        """
+        logger.info("Session reset - clearing current question and response")
+
+        # Clear current question and response (but keep history)
+        if self._response_widget:
+            self._response_widget.clear_current_question()
+            self._response_widget.clear_current_response()
+
+        # Update status bar
+        self.statusBar().showMessage("Session reset - ready for new question", 3000)
 
     def _update_session_control_state(self) -> None:
         """Update session control widget based on device selection.
