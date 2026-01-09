@@ -2,6 +2,7 @@
 
 from visionmate.core.recognition.openai_compatible import OpenAICompatibleClient
 from visionmate.core.recognition.openai_realtime import OpenAIRealtimeClient
+from visionmate.core.recognition.stt import CloudSTT, SpeechToTextInterface, WhisperSTT
 from visionmate.core.recognition.vlm_client import (
     RequestResponseVLMClient,
     StreamingVLMClient,
@@ -20,4 +21,7 @@ __all__ = [
     "RequestResponseVLMClient",
     "OpenAIRealtimeClient",
     "OpenAICompatibleClient",
+    "SpeechToTextInterface",
+    "WhisperSTT",
+    "CloudSTT",
 ]

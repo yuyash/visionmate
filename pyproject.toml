@@ -30,6 +30,7 @@ dependencies = [
     "uvicorn>=0.34.0",
     # VLM dependencies
     "openai>=1.59.0",
+    "openai-whisper>=20240930",
     "pillow>=11.0.0",
     # Security dependencies
     "keyring>=25.5.0",
