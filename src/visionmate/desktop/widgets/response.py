@@ -229,8 +229,10 @@ class ResponseWidget(QWidget):
             self._response_history.pop(0)
             # Remove oldest widget (last in layout before stretch)
             item = self._history_layout.takeAt(self._history_layout.count() - 2)
-            if item and item.widget():
-                item.widget().deleteLater()
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
 
         logger.debug(f"Added response to history (total: {len(self._response_history)})")
 
@@ -341,8 +343,10 @@ class ResponseWidget(QWidget):
         # Remove all history widgets except the stretch
         while self._history_layout.count() > 1:
             item = self._history_layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
 
         logger.debug("Response history cleared")
 
