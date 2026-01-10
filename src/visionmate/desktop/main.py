@@ -5,7 +5,7 @@ This module provides the main application window with delegated control
 and preview management.
 """
 
-from logging import Logger, getLogger
+import logging
 from typing import Optional
 
 from PySide6.QtCore import Qt
@@ -21,17 +21,18 @@ from PySide6.QtWidgets import (
 from visionmate.__main__ import APP_NAME, APP_VERSION
 from visionmate.core import AppSettings
 from visionmate.core.capture.manager import CaptureManager
+from visionmate.core.logging import LogConsoleHandler
 from visionmate.core.models import WindowGeometry
 from visionmate.core.session import SessionManager
 from visionmate.core.settings import SettingsManager
-from visionmate.desktop.dialogs import AboutDialog
+from visionmate.desktop.dialogs import AboutDialog, LogConsoleDialog
 from visionmate.desktop.widgets import (
     ActionContainer,
     ControlContainer,
     PreviewContainer,
 )
 
-logger: Logger = getLogger(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -45,10 +46,16 @@ class MainWindow(QMainWindow):
     - Menu bar at the top
     """
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        log_console_handler: Optional[LogConsoleHandler] = None,
+        parent: Optional[QWidget] = None,
+    ):
         """Initialize the main window.
 
         Args:
+            log_console_handler: Optional LogConsoleHandler to use for log console.
+                                If provided, logs from application startup will be available.
             parent: Optional parent widget
         """
         super().__init__(parent)
@@ -64,6 +71,20 @@ class MainWindow(QMainWindow):
         self._settings_manager = SettingsManager()
         self._settings: AppSettings = self._settings_manager.load_settings()
         logger.info("Settings loaded successfully")
+
+        # Create or use provided log console handler
+        if log_console_handler is not None:
+            # Use the handler that was created at startup (contains all logs)
+            self._log_console_handler = log_console_handler
+            logger.info("Using provided log console handler (contains startup logs)")
+        else:
+            # Create new handler and add to logging system
+            self._log_console_handler = LogConsoleHandler()
+            logging.getLogger().addHandler(self._log_console_handler)
+            logger.info("Created new log console handler")
+
+        # Log console dialog (created on demand)
+        self._log_console_dialog: Optional[LogConsoleDialog] = None
 
         # Capture manager
         self._capture_manager = CaptureManager()
@@ -154,9 +175,12 @@ class MainWindow(QMainWindow):
 
         # View menu
         view_menu = menu_bar.addMenu("&View")
-        view_placeholder = QAction("(View options coming soon)", self)
-        view_placeholder.setEnabled(False)
-        view_menu.addAction(view_placeholder)
+
+        log_console_action = QAction("&Log Console", self)
+        log_console_action.setShortcut("Ctrl+L")
+        log_console_action.setStatusTip("Open log console")
+        log_console_action.triggered.connect(self._show_log_console)
+        view_menu.addAction(log_console_action)
 
         # Session menu
         session_menu = menu_bar.addMenu("&Session")
@@ -188,6 +212,25 @@ class MainWindow(QMainWindow):
         logger.debug("Showing About dialog")
         dialog = AboutDialog(self._app_name, self._app_version, self)
         dialog.exec()
+
+    def _show_log_console(self) -> None:
+        """Show the Log Console dialog.
+
+        Requirements: 10.10, 17.1
+        """
+        logger.debug("Showing Log Console dialog")
+
+        # Create dialog if it doesn't exist
+        if self._log_console_dialog is None:
+            self._log_console_dialog = LogConsoleDialog(
+                log_handler=self._log_console_handler,
+                parent=self,
+            )
+
+        # Show the dialog (non-modal so user can interact with main window)
+        self._log_console_dialog.show()
+        self._log_console_dialog.raise_()
+        self._log_console_dialog.activateWindow()
 
     def _show_settings_dialog(self) -> None:
         """Show the Settings dialog."""
@@ -843,6 +886,15 @@ class MainWindow(QMainWindow):
         if self._session_manager.get_state() == SessionState.ACTIVE:
             logger.info("Stopping active session before closing")
             self._session_manager.stop()
+
+        # Close log console dialog if open
+        if self._log_console_dialog is not None:
+            self._log_console_dialog.close()
+
+        # Note: We don't remove the log console handler here because:
+        # 1. If it was provided from __main__, it's managed externally
+        # 2. If we created it, it will be cleaned up when the app exits
+        # This ensures logs continue to be captured until the very end
 
         # Accept the close event
         event.accept()

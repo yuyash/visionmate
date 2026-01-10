@@ -107,8 +107,14 @@ def main() -> int:
     parser = create_argument_parser()
     args = parser.parse_args()
 
-    # Initialize logging
-    setup_logging(log_level=args.log_level)
+    # Create log console handler early (before setup_logging)
+    # This will be passed to MainWindow later
+    from visionmate.core.logging import LogConsoleHandler
+
+    log_console_handler = LogConsoleHandler()
+
+    # Initialize logging with the console handler
+    setup_logging(log_level=args.log_level, console_handler=log_console_handler)
     logger = logging.getLogger(__name__)
 
     logger.info("Starting Visionmate application")
@@ -155,9 +161,10 @@ def main() -> int:
             logger.debug("Global stylesheet applied")
 
             # Create and show main window
+            # Pass the log console handler so it can display logs from startup
             from visionmate.desktop import MainWindow
 
-            window = MainWindow()
+            window = MainWindow(log_console_handler=log_console_handler)
             window.show()
 
             logger.info("Desktop UI launched successfully")

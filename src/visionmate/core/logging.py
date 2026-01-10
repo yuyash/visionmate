@@ -66,17 +66,24 @@ class LogConsoleHandler(logging.Handler):
     for signal emission to avoid method name conflicts. It supports
     log level filtering and emits formatted log records as signals.
 
+    Additionally, this handler maintains a buffer of recent log messages
+    so that when the log console dialog is opened, it can display
+    historical logs from application startup.
+
     Requirements: 17.2, 17.3, 17.5
     """
 
-    def __init__(self, level: int = logging.NOTSET):
+    def __init__(self, level: int = logging.NOTSET, max_buffer_size: int = 1000):
         """Initialize the handler.
 
         Args:
             level: Minimum log level to handle (default: NOTSET, handles all levels)
+            max_buffer_size: Maximum number of log messages to buffer (default: 1000)
         """
         super().__init__(level=level)
         self._signal_emitter = LogSignalEmitter()
+        self._log_buffer: list[tuple[str, str, logging.LogRecord]] = []
+        self._max_buffer_size = max_buffer_size
 
     @property
     def log_message(self):
@@ -86,6 +93,14 @@ class LogConsoleHandler(logging.Handler):
             Signal that emits (level: str, message: str, record: LogRecord)
         """
         return self._signal_emitter.log_message
+
+    def get_buffered_logs(self) -> list[tuple[str, str, logging.LogRecord]]:
+        """Get all buffered log messages.
+
+        Returns:
+            List of tuples (level, message, record) for all buffered logs
+        """
+        return self._log_buffer.copy()
 
     def emit(self, record: logging.LogRecord) -> None:
         """Process a log record and emit a signal.
@@ -102,6 +117,11 @@ class LogConsoleHandler(logging.Handler):
         try:
             # Format the log record
             message = self.format(record)
+
+            # Add to buffer (maintain max size)
+            self._log_buffer.append((record.levelname, message, record))
+            if len(self._log_buffer) > self._max_buffer_size:
+                self._log_buffer.pop(0)  # Remove oldest
 
             # Emit signal with level name, formatted message, and original record
             self._signal_emitter.log_message.emit(record.levelname, message, record)
