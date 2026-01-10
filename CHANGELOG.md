@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/yuyash/visionmate/compare/v1.3.0...v1.3.1) (2026-01-10)
+
+
+### Bug Fixes
+
+* lint issues ([#34](https://github.com/yuyash/visionmate/issues/34)) ([23ea447](https://github.com/yuyash/visionmate/commit/23ea4478ab943467f92d79bb0879c6e7ecb68a8e))
+
 ## [1.3.0](https://github.com/yuyash/visionmate/compare/v1.2.0...v1.3.0) (2026-01-09)
 
 
