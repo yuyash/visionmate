@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/yuyash/visionmate/compare/v1.3.1...v1.4.0) (2026-01-10)
+
+
+### Features
+
+* **desktop:** implement table-based log console with startup log buf… ([#36](https://github.com/yuyash/visionmate/issues/36)) ([675a3ae](https://github.com/yuyash/visionmate/commit/675a3aeaaa232434cc5c0fe3a768628f7dd57c8d))
+
 ## [1.3.1](https://github.com/yuyash/visionmate/compare/v1.3.0...v1.3.1) (2026-01-10)
 
 
