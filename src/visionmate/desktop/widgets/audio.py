@@ -86,7 +86,6 @@ class AudioPreviewWidget(QFrame):
     - Sample rate and channel information
     - Close button
 
-    Requirements: 12.1
     """
 
     # Signal emitted when close button is clicked

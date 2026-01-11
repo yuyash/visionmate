@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from visionmate.core.models import (
     AudioMode,
+    FrameSelectionStrategy,
     OpenAICompatibleModel,
     OpenAIRealtimeModel,
     PreviewLayout,
@@ -46,7 +48,6 @@ class SettingsDialog(QDialog):
     - UI preferences (language, timezone, layout)
     - Advanced settings
 
-    Requirements: 15.1, 15.2, 15.3, 15.4, 15.5
     """
 
     def __init__(
@@ -77,10 +78,7 @@ class SettingsDialog(QDialog):
         self._load_current_settings()
 
     def _setup_ui(self) -> None:
-        """Setup the UI components with tabs.
-
-        Requirements: 15.1
-        """
+        """Setup the UI components with tabs."""
         # Create main layout
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -108,10 +106,7 @@ class SettingsDialog(QDialog):
         logger.debug("SettingsDialog UI setup complete")
 
     def _create_general_tab(self) -> QWidget:
-        """Create the General settings tab.
-
-        Requirements: 15.4
-        """
+        """Create the General settings tab."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
@@ -145,10 +140,7 @@ class SettingsDialog(QDialog):
         return widget
 
     def _create_vlm_tab(self) -> QWidget:
-        """Create the VLM settings tab.
-
-        Requirements: 15.2, 5.5, 5.6, 6.2
-        """
+        """Create the VLM settings tab."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
@@ -190,10 +182,7 @@ class SettingsDialog(QDialog):
         return widget
 
     def _create_audio_tab(self) -> QWidget:
-        """Create the Audio settings tab.
-
-        Requirements: 15.3, 7.5, 7.6
-        """
+        """Create the Audio settings tab."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
@@ -202,7 +191,17 @@ class SettingsDialog(QDialog):
         audio_group = QGroupBox("Audio Processing")
         audio_layout = QFormLayout(audio_group)
 
-        # Audio mode selection
+        # Audio mode selection (for multimedia manager)
+        self._mm_audio_mode_combo = QComboBox()
+        self._mm_audio_mode_combo.addItem("Server-Side (Streaming)", AudioMode.SERVER_SIDE)
+        self._mm_audio_mode_combo.addItem("Client-Side (Buffered)", AudioMode.CLIENT_SIDE)
+        self._mm_audio_mode_combo.setToolTip(
+            "Server-Side: Continuous streaming to VLM\n"
+            "Client-Side: Local STT with buffered segments"
+        )
+        audio_layout.addRow("Audio Mode:", self._mm_audio_mode_combo)
+
+        # Legacy audio mode selection (for backward compatibility)
         self._audio_mode_combo = QComboBox()
         self._audio_mode_combo.addItem("Direct Audio to VLM", AudioMode.DIRECT)
         self._audio_mode_combo.addItem("Convert to Text First", AudioMode.TEXT)
@@ -210,7 +209,7 @@ class SettingsDialog(QDialog):
             "Direct: Send audio directly to VLM\nText: Convert audio to text using STT first"
         )
         self._audio_mode_combo.currentIndexChanged.connect(self._on_audio_mode_changed)
-        audio_layout.addRow("Audio Mode:", self._audio_mode_combo)
+        audio_layout.addRow("Legacy Mode:", self._audio_mode_combo)
 
         # STT Provider selection
         self._stt_provider_combo = QComboBox()
@@ -222,16 +221,41 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(audio_group)
 
+        # Frame Selection group
+        frame_group = QGroupBox("Frame Selection")
+        frame_layout = QFormLayout(frame_group)
+
+        # Frame selection strategy
+        self._frame_strategy_combo = QComboBox()
+        self._frame_strategy_combo.addItem("Middle Frame", FrameSelectionStrategy.MIDDLE)
+        self._frame_strategy_combo.addItem("Most Different", FrameSelectionStrategy.MOST_DIFFERENT)
+        self._frame_strategy_combo.addItem("Adaptive", FrameSelectionStrategy.ADAPTIVE)
+        self._frame_strategy_combo.addItem("Keyframe", FrameSelectionStrategy.KEYFRAME)
+        self._frame_strategy_combo.setToolTip(
+            "Middle: Select middle frame (simple, fast)\n"
+            "Most Different: Select frame most different from last sent\n"
+            "Adaptive: Select multiple frames if changes detected\n"
+            "Keyframe: Select frames with high information content"
+        )
+        frame_layout.addRow("Strategy:", self._frame_strategy_combo)
+
+        # Max frames per segment
+        self._max_frames_spinbox = QSpinBox()
+        self._max_frames_spinbox.setMinimum(1)
+        self._max_frames_spinbox.setMaximum(10)
+        self._max_frames_spinbox.setValue(3)
+        self._max_frames_spinbox.setToolTip("Maximum frames to include per segment (1-10)")
+        frame_layout.addRow("Max Frames/Segment:", self._max_frames_spinbox)
+
+        layout.addWidget(frame_group)
+
         # Add stretch to push content to top
         layout.addStretch()
 
         return widget
 
     def _create_ui_tab(self) -> QWidget:
-        """Create the UI settings tab.
-
-        Requirements: 15.5
-        """
+        """Create the UI settings tab."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
@@ -304,6 +328,85 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(advanced_group)
 
+        # Buffer Settings group
+        buffer_group = QGroupBox("Buffer Settings")
+        buffer_layout = QFormLayout(buffer_group)
+
+        # Max segment buffer size
+        self._max_buffer_size_spinbox = QSpinBox()
+        self._max_buffer_size_spinbox.setMinimum(10)
+        self._max_buffer_size_spinbox.setMaximum(1000)
+        self._max_buffer_size_spinbox.setValue(300)
+        self._max_buffer_size_spinbox.setToolTip("Maximum number of segments to buffer (10-1000)")
+        buffer_layout.addRow("Max Buffer Size:", self._max_buffer_size_spinbox)
+
+        # Max buffer memory
+        self._max_buffer_memory_spinbox = QSpinBox()
+        self._max_buffer_memory_spinbox.setMinimum(50)
+        self._max_buffer_memory_spinbox.setMaximum(2000)
+        self._max_buffer_memory_spinbox.setValue(500)
+        self._max_buffer_memory_spinbox.setSuffix(" MB")
+        self._max_buffer_memory_spinbox.setToolTip("Maximum memory usage for buffer (50-2000 MB)")
+        buffer_layout.addRow("Max Buffer Memory:", self._max_buffer_memory_spinbox)
+
+        layout.addWidget(buffer_group)
+
+        # Audio Detection group
+        detection_group = QGroupBox("Audio Detection")
+        detection_layout = QFormLayout(detection_group)
+
+        # Energy threshold
+        self._energy_threshold_spinbox = QDoubleSpinBox()
+        self._energy_threshold_spinbox.setMinimum(0.001)
+        self._energy_threshold_spinbox.setMaximum(1.0)
+        self._energy_threshold_spinbox.setSingleStep(0.001)
+        self._energy_threshold_spinbox.setDecimals(3)
+        self._energy_threshold_spinbox.setValue(0.01)
+        self._energy_threshold_spinbox.setToolTip(
+            "Energy threshold for speech detection (0.001-1.0)"
+        )
+        detection_layout.addRow("Energy Threshold:", self._energy_threshold_spinbox)
+
+        # Silence duration
+        self._silence_duration_spinbox = QDoubleSpinBox()
+        self._silence_duration_spinbox.setMinimum(0.5)
+        self._silence_duration_spinbox.setMaximum(10.0)
+        self._silence_duration_spinbox.setSingleStep(0.1)
+        self._silence_duration_spinbox.setDecimals(1)
+        self._silence_duration_spinbox.setValue(1.5)
+        self._silence_duration_spinbox.setSuffix(" sec")
+        self._silence_duration_spinbox.setToolTip(
+            "Silence duration before considering speech ended (0.5-10.0 sec)"
+        )
+        detection_layout.addRow("Silence Duration:", self._silence_duration_spinbox)
+
+        layout.addWidget(detection_group)
+
+        # Network Settings group
+        network_group = QGroupBox("Network Settings")
+        network_layout = QFormLayout(network_group)
+
+        # Max retry attempts
+        self._max_retry_spinbox = QSpinBox()
+        self._max_retry_spinbox.setMinimum(0)
+        self._max_retry_spinbox.setMaximum(10)
+        self._max_retry_spinbox.setValue(3)
+        self._max_retry_spinbox.setToolTip("Maximum retry attempts for failed requests (0-10)")
+        network_layout.addRow("Max Retry Attempts:", self._max_retry_spinbox)
+
+        # Connection timeout
+        self._connection_timeout_spinbox = QDoubleSpinBox()
+        self._connection_timeout_spinbox.setMinimum(1.0)
+        self._connection_timeout_spinbox.setMaximum(60.0)
+        self._connection_timeout_spinbox.setSingleStep(1.0)
+        self._connection_timeout_spinbox.setDecimals(1)
+        self._connection_timeout_spinbox.setValue(10.0)
+        self._connection_timeout_spinbox.setSuffix(" sec")
+        self._connection_timeout_spinbox.setToolTip("Connection timeout (1.0-60.0 sec)")
+        network_layout.addRow("Connection Timeout:", self._connection_timeout_spinbox)
+
+        layout.addWidget(network_group)
+
         # Add stretch to push content to top
         layout.addStretch()
 
@@ -335,14 +438,29 @@ class SettingsDialog(QDialog):
             self._base_url_input.setText(self._settings.vlm_settings.base_url)
 
         # Audio tab
+        self._set_mm_audio_mode(self._settings.audio_mode)
         self._set_audio_mode(self._settings.stt_settings.audio_mode)
         self._set_stt_provider(self._settings.stt_settings.provider)
+        self._set_frame_strategy(self._settings.manager_config.frame_selection_strategy)
+        self._max_frames_spinbox.setValue(self._settings.manager_config.max_frames_per_segment)
 
         # UI tab
         self._set_language(self._settings.locale_settings.locale_string)
         self._set_timezone(self._settings.locale_settings.timezone_name)
         self._set_video_layout(self._settings.preview_layout_settings.video_layout)
         self._set_audio_layout(self._settings.preview_layout_settings.audio_layout)
+
+        # Advanced tab
+        self._max_buffer_size_spinbox.setValue(
+            self._settings.manager_config.max_segment_buffer_size
+        )
+        self._max_buffer_memory_spinbox.setValue(self._settings.manager_config.max_buffer_memory_mb)
+        self._energy_threshold_spinbox.setValue(self._settings.manager_config.energy_threshold)
+        self._silence_duration_spinbox.setValue(self._settings.manager_config.silence_duration_sec)
+        self._max_retry_spinbox.setValue(self._settings.manager_config.max_retry_attempts)
+        self._connection_timeout_spinbox.setValue(
+            self._settings.manager_config.connection_timeout_sec
+        )
 
         logger.debug("Settings loaded successfully")
 
@@ -369,6 +487,20 @@ class SettingsDialog(QDialog):
                 self._audio_mode_combo.setCurrentIndex(i)
                 # Manually trigger the change handler to update visibility
                 self._on_audio_mode_changed(i)
+                break
+
+    def _set_mm_audio_mode(self, mode: AudioMode) -> None:
+        """Set multimedia manager audio mode in combo box."""
+        for i in range(self._mm_audio_mode_combo.count()):
+            if self._mm_audio_mode_combo.itemData(i) == mode:
+                self._mm_audio_mode_combo.setCurrentIndex(i)
+                break
+
+    def _set_frame_strategy(self, strategy: FrameSelectionStrategy) -> None:
+        """Set frame selection strategy in combo box."""
+        for i in range(self._frame_strategy_combo.count()):
+            if self._frame_strategy_combo.itemData(i) == strategy:
+                self._frame_strategy_combo.setCurrentIndex(i)
                 break
 
     def _set_stt_provider(self, provider: STTProvider) -> None:
@@ -415,7 +547,6 @@ class SettingsDialog(QDialog):
         Args:
             index: Combo box index
 
-        Requirements: 5.5, 5.6
         """
         provider = self._vlm_provider_combo.itemData(index)
 
@@ -449,7 +580,6 @@ class SettingsDialog(QDialog):
         Args:
             index: Combo box index
 
-        Requirements: 7.5, 7.6
         """
         mode = self._audio_mode_combo.itemData(index)
 
@@ -461,10 +591,7 @@ class SettingsDialog(QDialog):
         logger.debug(f"Audio mode changed to: {mode}")
 
     def _on_accept(self) -> None:
-        """Handle OK button click - save settings.
-
-        Requirements: 15.6, 6.2
-        """
+        """Handle OK button click - save settings."""
         logger.info("Saving settings")
 
         try:
@@ -487,8 +614,35 @@ class SettingsDialog(QDialog):
                 logger.info("API key stored in keyring")
 
             # Audio settings
+            self._settings.audio_mode = self._mm_audio_mode_combo.currentData()
             self._settings.stt_settings.audio_mode = self._audio_mode_combo.currentData()
             self._settings.stt_settings.provider = self._stt_provider_combo.currentData()
+
+            # Manager config - frame selection
+            self._settings.manager_config.frame_selection_strategy = (
+                self._frame_strategy_combo.currentData()
+            )
+            self._settings.manager_config.max_frames_per_segment = self._max_frames_spinbox.value()
+
+            # Manager config - buffer settings
+            self._settings.manager_config.max_segment_buffer_size = (
+                self._max_buffer_size_spinbox.value()
+            )
+            self._settings.manager_config.max_buffer_memory_mb = (
+                self._max_buffer_memory_spinbox.value()
+            )
+
+            # Manager config - audio detection
+            self._settings.manager_config.energy_threshold = self._energy_threshold_spinbox.value()
+            self._settings.manager_config.silence_duration_sec = (
+                self._silence_duration_spinbox.value()
+            )
+
+            # Manager config - network settings
+            self._settings.manager_config.max_retry_attempts = self._max_retry_spinbox.value()
+            self._settings.manager_config.connection_timeout_sec = (
+                self._connection_timeout_spinbox.value()
+            )
 
             # UI settings
             from visionmate.core.models import LocaleSettings

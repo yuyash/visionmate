@@ -42,7 +42,6 @@ class PreviewContainer(QWidget):
     - Grid layout (automatic grid arrangement)
     - Drag-and-drop reordering (future implementation)
 
-    Requirements: 13.1-13.5
     """
 
     # Signal emitted when layout mode changes
@@ -140,7 +139,6 @@ class PreviewContainer(QWidget):
             source_id: Unique identifier for the source
             capture: VideoCaptureInterface instance
 
-        Requirements: 11.5, 11.6
         """
         if source_id in self._video_previews:
             logger.warning(f"Video preview already exists for source: {source_id}")
@@ -195,7 +193,6 @@ class PreviewContainer(QWidget):
             source_id: Unique identifier for the source
             capture: AudioCaptureInterface instance
 
-        Requirements: 12.1
         """
         if source_id in self._audio_previews:
             logger.warning(f"Audio preview already exists for source: {source_id}")
@@ -244,7 +241,6 @@ class PreviewContainer(QWidget):
         Args:
             source_id: Source identifier
 
-        Requirements: 11.9
         """
         # Try video preview first
         if source_id in self._video_previews:
@@ -313,10 +309,7 @@ class PreviewContainer(QWidget):
         self.status_message.emit(f"Preview closed for {source_id}", 3000)
 
     def clear_previews(self) -> None:
-        """Remove all preview widgets from the container.
-
-        Requirements: 11.9
-        """
+        """Remove all preview widgets from the container."""
         # Remove all video previews
         for source_id in list(self._video_previews.keys()):
             self.remove_preview(source_id)
@@ -362,7 +355,6 @@ class PreviewContainer(QWidget):
         Args:
             mode: Layout mode (HORIZONTAL, VERTICAL, GRID)
 
-        Requirements: 13.1, 13.2, 13.3, 13.4
         """
         if self._layout_mode == mode:
             return
@@ -387,7 +379,6 @@ class PreviewContainer(QWidget):
         Args:
             enabled: True to enable drag-and-drop, False to disable
 
-        Requirements: 13.5
 
         Note: This is a placeholder for future implementation.
         Drag-and-drop reordering requires implementing custom drag/drop
@@ -437,7 +428,6 @@ class PreviewContainer(QWidget):
             fps: Frame rate (default: 1)
             window_capture_mode: Window capture mode (default: "full_screen")
 
-        Requirements: 11.6, 28.9
         """
         logger.debug(
             f"start_capture_and_preview called: source_type={source_type}, "
@@ -900,7 +890,6 @@ class PreviewContainer(QWidget):
         Args:
             device_id: Audio device identifier
 
-        Requirements: 12.1
         """
         logger.debug(f"start_audio_capture_and_preview called: device_id={device_id}")
 
@@ -970,10 +959,7 @@ class PreviewContainer(QWidget):
             logger.error(f"Error closing audio preview: {e}", exc_info=True)
 
     def remove_video_previews(self) -> None:
-        """Remove all video previews.
-
-        Requirements: 10.6
-        """
+        """Remove all video previews."""
         # Get all video source IDs
         video_source_ids = list(self._capture_manager.get_video_source_ids())
 
@@ -985,10 +971,7 @@ class PreviewContainer(QWidget):
         logger.info(f"Removed {len(video_source_ids)} video preview(s)")
 
     def remove_audio_previews(self) -> None:
-        """Remove all audio previews.
-
-        Requirements: 10.6
-        """
+        """Remove all audio previews."""
         # Get all audio source IDs (copy to avoid modification during iteration)
         audio_source_ids = list(self._capture_manager.get_audio_source_ids())
 

@@ -126,10 +126,19 @@ class STTProvider(Enum):
 
 
 class AudioMode(Enum):
-    """Audio processing mode."""
+    """Audio processing mode for VLM integration.
 
-    DIRECT = "direct"  # Pass audio directly to VLM
-    TEXT = "text"  # Convert audio to text first
+    This enum defines how audio is processed before being sent to the VLM:
+    - SERVER_SIDE: Audio is streamed directly to the VLM server for recognition
+    - CLIENT_SIDE: Audio is transcribed locally via STT, then sent with text
+    """
+
+    SERVER_SIDE = "server-side"  # Continuous streaming to VLM
+    CLIENT_SIDE = "client-side"  # Local STT with buffered segments
+
+    # Legacy modes for backward compatibility
+    DIRECT = "direct"  # Pass audio directly to VLM (alias for SERVER_SIDE)
+    TEXT = "text"  # Convert audio to text first (alias for CLIENT_SIDE)
 
 
 class PreviewLayout(Enum):
@@ -138,6 +147,36 @@ class PreviewLayout(Enum):
     HORIZONTAL = "horizontal"
     VERTICAL = "vertical"
     GRID = "grid"
+
+
+class ActivityState(Enum):
+    """Audio activity state for speech detection.
+
+    Used by AudioActivityDetector to track speech activity:
+    - SILENCE: No speech detected in audio stream
+    - SPEECH: Speech activity currently in progress
+    - SPEECH_ENDED: Speech just ended (triggers processing)
+    """
+
+    SILENCE = "silence"
+    SPEECH = "speech"
+    SPEECH_ENDED = "speech_ended"
+
+
+class FrameSelectionStrategy(Enum):
+    """Strategy for selecting representative frame(s) from time period.
+
+    Different strategies for intelligent frame selection:
+    - MIDDLE: Select middle frame in period (simple, fast)
+    - MOST_DIFFERENT: Select frame most different from last sent frame
+    - ADAPTIVE: Select multiple frames if significant changes detected
+    - KEYFRAME: Select frames with high information content
+    """
+
+    MIDDLE = "middle"
+    MOST_DIFFERENT = "most_different"
+    ADAPTIVE = "adaptive"
+    KEYFRAME = "keyframe"
 
 
 # ============================================================================
@@ -224,6 +263,50 @@ class AudioChunk:
     source_id: str
     source_type: AudioSourceType
     chunk_number: int
+
+
+@dataclass
+class MultimediaSegment:
+    """Represents a temporally correlated audio-video segment.
+
+    An audio chunk covers time period [start_time, end_time].
+    The video_frames list contains one or more representative frames
+    from that period, selected based on visual change detection.
+    """
+
+    audio: AudioChunk
+    video_frames: List[VideoFrame]  # One or more representative frames
+    start_time: datetime
+    end_time: datetime
+    source_id: str  # Identifier for the capture source
+
+    def get_duration_ms(self) -> float:
+        """Get segment duration in milliseconds.
+
+        Returns:
+            Duration in milliseconds
+        """
+        return (self.end_time - self.start_time).total_seconds() * 1000
+
+    def get_memory_size_mb(self) -> float:
+        """Estimate memory size in MB.
+
+        Returns:
+            Estimated memory usage in megabytes
+        """
+        # Audio: float32 array
+        audio_size = self.audio.data.nbytes
+        # Video: uint8 array (H x W x C) for each frame
+        video_size = sum(frame.image.nbytes for frame in self.video_frames)
+        return (audio_size + video_size) / (1024 * 1024)
+
+    def get_frame_count(self) -> int:
+        """Get number of frames in segment.
+
+        Returns:
+            Number of video frames
+        """
+        return len(self.video_frames)
 
 
 # ============================================================================
@@ -352,6 +435,67 @@ class WindowGeometry:
 
 
 @dataclass
+class ManagerConfig:
+    """Configuration for MultimediaManager.
+
+    Contains all configuration parameters for the multimedia manager
+    including buffer settings, audio detection, frame selection, and
+    network/retry settings.
+    """
+
+    # Segment buffer settings
+    max_segment_buffer_size: int = 300
+    max_buffer_memory_mb: int = 500
+
+    # Audio activity detection
+    energy_threshold: float = 0.01
+    silence_duration_sec: float = 1.5
+
+    # Frame selection
+    frame_selection_strategy: FrameSelectionStrategy = FrameSelectionStrategy.MOST_DIFFERENT
+    max_time_drift_ms: float = 100.0
+    change_threshold: float = 0.15  # Visual change detection threshold
+    max_frames_per_segment: int = 3  # Max frames per segment
+
+    # Network and retry settings
+    max_retry_attempts: int = 3
+    retry_backoff_base: float = 1.0
+    connection_timeout_sec: float = 10.0
+
+    # Performance settings
+    segment_send_timeout_ms: int = 200
+    enable_backpressure: bool = True
+    max_send_buffer_size: int = 100
+
+
+@dataclass
+class ManagerMetrics:
+    """Metrics for monitoring manager performance.
+
+    Tracks buffer usage, throughput, errors, and timing metrics
+    for observability and debugging.
+    """
+
+    # Buffer metrics
+    segments_buffered: int = 0
+    segments_dropped: int = 0
+    buffer_memory_mb: float = 0.0
+
+    # Throughput metrics
+    segments_sent: int = 0
+    requests_sent: int = 0
+
+    # Error metrics
+    send_errors: int = 0
+    stt_errors: int = 0
+    connection_errors: int = 0
+
+    # Timing metrics
+    avg_segment_latency_ms: float = 0.0
+    avg_stt_duration_ms: float = 0.0
+
+
+@dataclass
 class AppSettings:
     """Application settings."""
 
@@ -376,6 +520,12 @@ class AppSettings:
             audio_mode=AudioMode.DIRECT,
         )
     )
+
+    # Audio mode for multimedia manager
+    audio_mode: AudioMode = AudioMode.SERVER_SIDE
+
+    # Multimedia manager configuration
+    manager_config: ManagerConfig = field(default_factory=ManagerConfig)
 
     # Locale settings
     locale_settings: LocaleSettings = field(default_factory=LocaleSettings)

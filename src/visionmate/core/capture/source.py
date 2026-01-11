@@ -21,8 +21,6 @@ class VideoSourceManager:
 
     This class coordinates multiple video captures and provides a unified
     interface for collecting frames from all active sources.
-
-    Requirements: 1.6
     """
 
     def __init__(self):
@@ -40,8 +38,6 @@ class VideoSourceManager:
 
         Raises:
             ValueError: If source_id already exists
-
-        Requirements: 1.6
         """
         with self._lock:
             if source_id in self._sources:
@@ -58,8 +54,6 @@ class VideoSourceManager:
 
         Raises:
             KeyError: If source_id does not exist
-
-        Requirements: 1.6
         """
         with self._lock:
             if source_id not in self._sources:
@@ -81,8 +75,6 @@ class VideoSourceManager:
 
         Returns:
             VideoCaptureInterface instance, or None if not found
-
-        Requirements: 1.6
         """
         with self._lock:
             return self._sources.get(source_id)
@@ -92,8 +84,6 @@ class VideoSourceManager:
 
         Returns:
             Dictionary mapping source IDs to VideoCaptureInterface instances
-
-        Requirements: 1.6
         """
         with self._lock:
             return self._sources.copy()
@@ -103,8 +93,6 @@ class VideoSourceManager:
 
         Returns:
             List of source IDs
-
-        Requirements: 1.6
         """
         with self._lock:
             return list(self._sources.keys())
@@ -114,8 +102,6 @@ class VideoSourceManager:
 
         Returns:
             Number of active sources
-
-        Requirements: 1.6
         """
         with self._lock:
             return len(self._sources)
@@ -126,8 +112,6 @@ class VideoSourceManager:
         Returns:
             Dictionary mapping source IDs to VideoFrame objects.
             Sources with no available frame will have None value.
-
-        Requirements: 1.6
         """
         with self._lock:
             frames = {}
@@ -142,10 +126,7 @@ class VideoSourceManager:
             return frames
 
     def start_all(self) -> None:
-        """Start capture for all sources that are not already capturing.
-
-        Requirements: 1.6
-        """
+        """Start capture for all sources that are not already capturing."""
         with self._lock:
             for source_id, capture in self._sources.items():
                 try:
@@ -157,10 +138,7 @@ class VideoSourceManager:
                     logger.error(f"Error checking capture status for {source_id}: {e}")
 
     def stop_all(self) -> None:
-        """Stop capture for all sources.
-
-        Requirements: 1.6
-        """
+        """Stop capture for all sources."""
         with self._lock:
             for source_id, capture in self._sources.items():
                 try:
@@ -171,10 +149,7 @@ class VideoSourceManager:
                     logger.error(f"Error stopping capture for {source_id}: {e}", exc_info=True)
 
     def clear_all(self) -> None:
-        """Remove all sources and stop their captures.
-
-        Requirements: 1.6
-        """
+        """Remove all sources and stop their captures."""
         with self._lock:
             source_ids = list(self._sources.keys())
             for source_id in source_ids:
@@ -193,8 +168,6 @@ class VideoSourceManager:
 
         Returns:
             True if source is capturing, False otherwise
-
-        Requirements: 1.6
         """
         with self._lock:
             capture = self._sources.get(source_id)

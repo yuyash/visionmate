@@ -31,7 +31,6 @@ class ResponseWidget(QWidget):
     - Current response (direct answer, follow-up questions, supplementary info)
     - Response history with timestamps (scrollable)
 
-    Requirements: 14.1, 14.2, 14.3, 14.4, 10.8
     """
 
     # Signals
@@ -142,7 +141,6 @@ class ResponseWidget(QWidget):
         Args:
             question: Question text
 
-        Requirements: 14.1, 8.4
         """
         self._current_question = question
         self._question_text.setText(question)
@@ -165,7 +163,6 @@ class ResponseWidget(QWidget):
         Args:
             response: VLM response object
 
-        Requirements: 14.1, 14.2, 21.4
         """
         self._current_response = response
 
@@ -212,7 +209,6 @@ class ResponseWidget(QWidget):
         Args:
             response: VLM response object
 
-        Requirements: 14.3, 14.4
         """
         # Add to history list
         timestamp = datetime.fromtimestamp(response.timestamp)
@@ -246,7 +242,6 @@ class ResponseWidget(QWidget):
         Returns:
             History entry widget
 
-        Requirements: 14.3, 14.4
         """
         entry = QFrame()
         entry.setFrameShape(QFrame.Shape.StyledPanel)
@@ -296,10 +291,7 @@ class ResponseWidget(QWidget):
         return entry
 
     def clear_current_question(self) -> None:
-        """Clear the current question display.
-
-        Requirements: 14.1
-        """
+        """Clear the current question display."""
         self._current_question = None
         self._question_text.setText("No question detected yet")
         self._question_text.setStyleSheet(
@@ -315,10 +307,7 @@ class ResponseWidget(QWidget):
         logger.debug("Current question cleared")
 
     def clear_current_response(self) -> None:
-        """Clear the current response display.
-
-        Requirements: 14.1, 14.2
-        """
+        """Clear the current response display."""
         self._current_response = None
         self._response_text.setText("Waiting for response...")
         self._response_text.setStyleSheet(
@@ -334,10 +323,7 @@ class ResponseWidget(QWidget):
         logger.debug("Current response cleared")
 
     def clear_history(self) -> None:
-        """Clear the response history.
-
-        Requirements: 14.3
-        """
+        """Clear the response history."""
         self._response_history.clear()
 
         # Remove all history widgets except the stretch
@@ -356,6 +342,5 @@ class ResponseWidget(QWidget):
         Returns:
             Number of history entries
 
-        Requirements: 14.3
         """
         return len(self._response_history)

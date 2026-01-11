@@ -14,15 +14,20 @@ from typing import Callable, Optional
 
 from visionmate.core.capture.audio import AudioCaptureInterface, AudioMixer
 from visionmate.core.capture.manager import CaptureManager
+from visionmate.core.capture.stream import StreamManager
 from visionmate.core.capture.video import VideoCaptureInterface
 from visionmate.core.models import (
+    AppSettings,
+    AudioMode,
     AudioSourceConfig,
     AudioSourceType,
     InputMode,
+    ManagerConfig,
     SessionState,
     VideoSourceConfig,
     VideoSourceType,
 )
+from visionmate.core.multimedia.manager import MultimediaManager
 from visionmate.core.recognition import (
     Question,
     QuestionSegmenter,
@@ -48,11 +53,15 @@ class SessionManager:
         ACTIVE → IDLE (stop)
         ACTIVE → ACTIVE (reset - internal state change only)
 
-    Requirements: 9.1-9.10, 3.1, 3.2
     """
 
-    def __init__(self):
-        """Initialize the SessionManager."""
+    def __init__(self, settings: Optional[AppSettings] = None):
+        """Initialize the SessionManager.
+
+        Args:
+            settings: Optional application settings for configuration
+
+        """
         self._state = SessionState.IDLE
         self._input_mode = InputMode.VIDEO_AUDIO
         self._capture_manager = CaptureManager()
@@ -68,10 +77,19 @@ class SessionManager:
 
         # STT client and audio mode
         self._stt_client: Optional[SpeechToTextInterface] = None
-        self._audio_mode: str = "direct"  # "direct" or "text"
+        self._audio_mode: AudioMode = AudioMode.SERVER_SIDE  # Default to server-side mode
 
         # Question segmentation
         self._question_segmenter = QuestionSegmenter()
+
+        # Stream manager for multimedia integration
+        self._stream_manager: Optional[StreamManager] = None
+
+        # Multimedia manager for event-driven VLM integration
+        self._multimedia_manager: Optional[MultimediaManager] = None
+
+        # Store settings for configuration
+        self._settings = settings
 
         logger.info("SessionManager initialized")
 
@@ -88,7 +106,6 @@ class SessionManager:
         Raises:
             RuntimeError: If session is active
 
-        Requirements: 5.1, 5.2, 5.5
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot change VLM client while session is active")
@@ -132,7 +149,6 @@ class SessionManager:
         Raises:
             RuntimeError: If session is active
 
-        Requirements: 7.1, 7.2, 7.3, 7.4
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot change STT client while session is active")
@@ -156,32 +172,39 @@ class SessionManager:
         """
         return self._stt_client is not None
 
-    def set_audio_mode(self, mode: str) -> None:
+    def set_audio_mode(self, mode: AudioMode) -> None:
         """Set audio processing mode.
 
         Args:
-            mode: Audio mode - "direct" or "text"
+            mode: Audio mode (AudioMode enum)
 
         Raises:
             RuntimeError: If session is active
-            ValueError: If mode is invalid
+            ValueError: If mode requires STT client but none is configured
 
-        Requirements: 7.5, 7.6
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot change audio mode while session is active")
 
-        if mode not in ("direct", "text"):
-            raise ValueError(f"Invalid audio mode: {mode}. Must be 'direct' or 'text'")
+        # Validate that required components are available
+        if mode in (AudioMode.CLIENT_SIDE, AudioMode.TEXT):
+            if not self._stt_client:
+                raise ValueError(
+                    f"STT client is required for {mode.value} mode but none is configured"
+                )
 
         self._audio_mode = mode
-        logger.info(f"Audio mode set to: {mode}")
+        logger.info(f"Audio mode set to: {mode.value}")
 
-    def get_audio_mode(self) -> str:
+        # If multimedia manager exists, update its mode
+        if self._multimedia_manager:
+            self._multimedia_manager.set_audio_mode(mode)
+
+    def get_audio_mode(self) -> AudioMode:
         """Get current audio processing mode.
 
         Returns:
-            Audio mode - "direct" or "text"
+            Audio mode (AudioMode enum)
         """
         return self._audio_mode
 
@@ -203,7 +226,6 @@ class SessionManager:
         Returns:
             Current QuestionState
 
-        Requirements: 8.1, 8.2, 8.3
         """
         return self._question_segmenter.get_current_state()
 
@@ -213,7 +235,6 @@ class SessionManager:
         Returns:
             Current Question object or None if no question is active
 
-        Requirements: 8.4
         """
         return self._question_segmenter.get_current_question()
 
@@ -227,9 +248,23 @@ class SessionManager:
         Returns:
             Current SessionState
 
-        Requirements: 9.1-9.10
         """
         return self._state
+
+    def get_metrics(self):
+        """Get current metrics from multimedia manager.
+
+        Returns:
+            ManagerMetrics object with current metrics
+
+        """
+        from visionmate.core.models import ManagerMetrics
+
+        if self._multimedia_manager:
+            return self._multimedia_manager.get_metrics()
+        else:
+            # Return empty metrics if multimedia manager not initialized
+            return ManagerMetrics()
 
     def get_input_mode(self) -> InputMode:
         """Get current input mode.
@@ -237,7 +272,6 @@ class SessionManager:
         Returns:
             Current InputMode
 
-        Requirements: 3.1, 3.2
         """
         return self._input_mode
 
@@ -250,7 +284,6 @@ class SessionManager:
         Raises:
             RuntimeError: If session is active
 
-        Requirements: 3.1, 3.2
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot change input mode while session is active")
@@ -274,7 +307,6 @@ class SessionManager:
         Raises:
             RuntimeError: If session is already active or no sources configured
 
-        Requirements: 9.1, 9.6
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Session is already active")
@@ -336,7 +368,6 @@ class SessionManager:
         This method transitions the session from ACTIVE to IDLE state,
         stops all video and audio capture, and stops processing input.
 
-        Requirements: 9.2, 9.7
         """
         if self._state == SessionState.IDLE:
             logger.warning("Session is already stopped")
@@ -376,7 +407,6 @@ class SessionManager:
         Raises:
             RuntimeError: If session is not active
 
-        Requirements: 9.3, 9.8
         """
         if self._state != SessionState.ACTIVE:
             raise RuntimeError("Cannot reset - session is not active")
@@ -441,7 +471,6 @@ class SessionManager:
             RuntimeError: If session is active
             ValueError: If source cannot be created
 
-        Requirements: 9.4, 1.6
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot add video source while session is active")
@@ -535,7 +564,6 @@ class SessionManager:
             RuntimeError: If session is active
             KeyError: If source does not exist
 
-        Requirements: 9.4, 1.6
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot remove video source while session is active")
@@ -558,7 +586,6 @@ class SessionManager:
         Returns:
             List of source IDs
 
-        Requirements: 1.6
         """
         return list(self._video_source_configs.keys())
 
@@ -568,7 +595,6 @@ class SessionManager:
         Returns:
             Number of video sources
 
-        Requirements: 1.6
         """
         return len(self._video_source_configs)
 
@@ -598,7 +624,6 @@ class SessionManager:
             RuntimeError: If session is active
             ValueError: If source cannot be created
 
-        Requirements: 9.4, 2.1-2.3
         """
         if self._state == SessionState.ACTIVE:
             raise RuntimeError("Cannot set audio source while session is active")
@@ -689,7 +714,6 @@ class SessionManager:
         Returns:
             Source ID, or None if no audio source configured
 
-        Requirements: 2.1-2.3
         """
         if self._audio_source_config:
             return f"{self._audio_source_config.source_type.value}_{self._audio_source_config.device_id}"
@@ -701,7 +725,6 @@ class SessionManager:
         Returns:
             True if audio source is configured
 
-        Requirements: 2.4
         """
         return self._audio_source_config is not None
 
@@ -728,7 +751,6 @@ class SessionManager:
             - response_generated: VLM response generated (data: {"response": VLMResponse, ...})
             - error_occurred: Error occurred (data: {"error": str})
 
-        Requirements: 9.1-9.10, 21.4, 8.1, 8.2, 8.3, 8.4
         """
         if event not in self._callbacks:
             self._callbacks[event] = []
@@ -789,23 +811,69 @@ class SessionManager:
     # ========================================================================
 
     def _start_vlm_processing(self) -> None:
-        """Start VLM processing loop.
+        """Start VLM processing using MultimediaManager.
 
-        This method starts the async processing loop that sends frames and
-        audio to the VLM client and handles responses.
+        This method initializes the MultimediaManager with the current
+        configuration and starts event-driven data flow from capture
+        sources to the VLM client.
 
-        Requirements: 9.6, 21.1, 21.2, 21.3
         """
         if not self._vlm_client:
             return
 
         try:
+            # Initialize stream manager if not already done
+            if not self._stream_manager:
+                self._stream_manager = StreamManager(self._capture_manager)
+                logger.info("Created StreamManager for multimedia integration")
+
+            # Create multimedia manager configuration from settings
+            if self._settings:
+                config = ManagerConfig(
+                    max_segment_buffer_size=self._settings.manager_config.max_segment_buffer_size,
+                    max_buffer_memory_mb=self._settings.manager_config.max_buffer_memory_mb,
+                    energy_threshold=self._settings.manager_config.energy_threshold,
+                    silence_duration_sec=self._settings.manager_config.silence_duration_sec,
+                    frame_selection_strategy=self._settings.manager_config.frame_selection_strategy,
+                    max_time_drift_ms=self._settings.manager_config.max_time_drift_ms,
+                    change_threshold=self._settings.manager_config.change_threshold,
+                    max_frames_per_segment=self._settings.manager_config.max_frames_per_segment,
+                    max_retry_attempts=self._settings.manager_config.max_retry_attempts,
+                    retry_backoff_base=self._settings.manager_config.retry_backoff_base,
+                    connection_timeout_sec=self._settings.manager_config.connection_timeout_sec,
+                    segment_send_timeout_ms=self._settings.manager_config.segment_send_timeout_ms,
+                    enable_backpressure=self._settings.manager_config.enable_backpressure,
+                    max_send_buffer_size=self._settings.manager_config.max_send_buffer_size,
+                )
+            else:
+                # Use default configuration if no settings provided
+                config = ManagerConfig()
+
+            # Initialize multimedia manager
+            self._multimedia_manager = MultimediaManager(
+                audio_mode=self._audio_mode,
+                vlm_client=self._vlm_client,
+                stt_client=self._stt_client,
+                stream_manager=self._stream_manager,
+                config=config,
+            )
+
+            # Register response callback
+            self._multimedia_manager.register_response_callback(self._handle_vlm_response)
+
+            # Register error callback
+            def error_callback(error: Exception) -> None:
+                logger.error(f"MultimediaManager error: {error}", exc_info=True)
+                self._broadcast_event("error_occurred", {"error": str(error)})
+
+            self._multimedia_manager.register_error_callback(error_callback)
+
             # Create event loop for async processing
             self._processing_loop = asyncio.new_event_loop()
 
-            # Start processing task
+            # Start multimedia manager
             self._processing_task = asyncio.run_coroutine_threadsafe(
-                self._vlm_processing_loop(),
+                self._multimedia_manager.start(),
                 self._processing_loop,
             )
 
@@ -820,19 +888,30 @@ class SessionManager:
             loop_thread = threading.Thread(target=run_loop, daemon=True)
             loop_thread.start()
 
-            logger.info("VLM processing started")
+            logger.info("VLM processing started with MultimediaManager")
 
         except Exception as e:
             logger.error(f"Failed to start VLM processing: {e}", exc_info=True)
             raise
 
     def _stop_vlm_processing(self) -> None:
-        """Stop VLM processing loop.
+        """Stop VLM processing using MultimediaManager.
 
-        This method stops the async processing loop and disconnects from
-        the VLM client if it's a streaming client.
+        This method stops the MultimediaManager and cleans up resources.
+
         """
         try:
+            # Stop multimedia manager
+            if self._multimedia_manager and self._processing_loop:
+                future = asyncio.run_coroutine_threadsafe(
+                    self._multimedia_manager.stop(),
+                    self._processing_loop,
+                )
+                try:
+                    future.result(timeout=2.0)
+                except Exception as e:
+                    logger.warning(f"Error stopping MultimediaManager: {e}")
+
             # Cancel processing task
             if self._processing_task and not self._processing_task.done():
                 self._processing_task.cancel()
@@ -841,7 +920,7 @@ class SessionManager:
                 except Exception:
                     pass
 
-            # Disconnect streaming client
+            # Disconnect streaming client if needed
             if self._vlm_client:
                 from visionmate.core.recognition import StreamingVLMClient
 
@@ -862,6 +941,7 @@ class SessionManager:
 
             self._processing_task = None
             self._processing_loop = None
+            self._multimedia_manager = None
 
             logger.info("VLM processing stopped")
 
@@ -876,7 +956,6 @@ class SessionManager:
         to the VLM client. If audio mode is "text", audio is transcribed
         using the STT client before being sent to the VLM.
 
-        Requirements: 9.6, 9.7, 21.1, 21.2, 21.3, 7.1, 7.2, 7.5, 7.6
         """
         if not self._vlm_client:
             return
@@ -999,7 +1078,6 @@ class SessionManager:
         Args:
             response: VLM response object
 
-        Requirements: 21.4
         """
         try:
             logger.info(

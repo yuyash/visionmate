@@ -4,7 +4,6 @@ Log Console Dialog for Visionmate desktop application.
 This module provides a dialog window for viewing application logs
 with filtering, clearing, and saving capabilities.
 
-Requirements: 17.1, 17.3, 17.4, 17.5
 """
 
 import logging
@@ -42,7 +41,6 @@ class LogConsoleDialog(QDialog):
     - Clear button to clear displayed logs
     - Save to file button to export logs
 
-    Requirements: 17.1, 17.4, 17.5
     """
 
     # Column indices
@@ -100,10 +98,7 @@ class LogConsoleDialog(QDialog):
             self._log_table.scrollToBottom()
 
     def _setup_ui(self) -> None:
-        """Setup the dialog UI components.
-
-        Requirements: 17.1, 17.4, 17.5
-        """
+        """Setup the dialog UI components."""
         # Main layout
         layout = QVBoxLayout(self)
 
@@ -201,10 +196,7 @@ class LogConsoleDialog(QDialog):
         logger.debug("Log console UI setup complete")
 
     def _connect_signals(self) -> None:
-        """Connect log handler signals to dialog slots.
-
-        Requirements: 17.3
-        """
+        """Connect log handler signals to dialog slots."""
         # Connect to log handler's signal
         self._log_handler.log_message.connect(self._on_log_message)
         logger.debug("Connected to log handler signals")
@@ -218,7 +210,6 @@ class LogConsoleDialog(QDialog):
             message: Formatted log message
             record: Original log record
 
-        Requirements: 17.3, 17.5
         """
         # Filter by log level
         if record.levelno < self._current_filter_level:
@@ -305,7 +296,6 @@ class LogConsoleDialog(QDialog):
         Args:
             index: Selected combo box index
 
-        Requirements: 17.5
         """
         self._current_filter_level = self._level_combo.itemData(index)
         logger.debug(f"Log filter changed to: {logging.getLevelName(self._current_filter_level)}")
@@ -314,18 +304,12 @@ class LogConsoleDialog(QDialog):
         # Existing messages in the display are not filtered retroactively
 
     def _on_clear_clicked(self) -> None:
-        """Handle clear button click.
-
-        Requirements: 17.4
-        """
+        """Handle clear button click."""
         self._log_table.setRowCount(0)
         logger.debug("Log console cleared")
 
     def _on_save_clicked(self) -> None:
-        """Handle save to file button click.
-
-        Requirements: 17.4
-        """
+        """Handle save to file button click."""
         # Open file dialog
         file_path, _ = QFileDialog.getSaveFileName(
             self,

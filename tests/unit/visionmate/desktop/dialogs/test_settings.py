@@ -30,10 +30,7 @@ def settings_manager(tmp_path):
 
 
 def test_settings_dialog_initialization(qapp, settings_manager):
-    """Test that SettingsDialog initializes correctly.
-
-    Requirements: 15.1
-    """
+    """Test that SettingsDialog initializes correctly."""
     # Mock keyring to avoid CI environment issues
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=1)
@@ -52,10 +49,7 @@ def test_settings_dialog_initialization(qapp, settings_manager):
 
 
 def test_settings_dialog_general_tab(qapp, settings_manager):
-    """Test General tab controls.
-
-    Requirements: 15.4
-    """
+    """Test General tab controls."""
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=5)
 
@@ -66,10 +60,7 @@ def test_settings_dialog_general_tab(qapp, settings_manager):
 
 
 def test_settings_dialog_vlm_tab(qapp, settings_manager):
-    """Test VLM tab controls.
-
-    Requirements: 15.2, 5.5, 5.6
-    """
+    """Test VLM tab controls."""
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=1)
 
@@ -89,10 +80,7 @@ def test_settings_dialog_vlm_tab(qapp, settings_manager):
 
 
 def test_settings_dialog_audio_tab(qapp, settings_manager):
-    """Test Audio tab controls.
-
-    Requirements: 15.3, 7.5, 7.6
-    """
+    """Test Audio tab controls."""
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=1)
 
@@ -108,10 +96,7 @@ def test_settings_dialog_audio_tab(qapp, settings_manager):
 
 
 def test_settings_dialog_ui_tab(qapp, settings_manager):
-    """Test UI tab controls.
-
-    Requirements: 15.5
-    """
+    """Test UI tab controls."""
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=1)
 
@@ -127,10 +112,7 @@ def test_settings_dialog_ui_tab(qapp, settings_manager):
 
 
 def test_settings_dialog_vlm_provider_change(qapp, settings_manager):
-    """Test VLM provider change updates model list.
-
-    Requirements: 5.5, 5.6
-    """
+    """Test VLM provider change updates model list."""
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=1)
         dialog.show()  # Show dialog to ensure layout is active
@@ -155,10 +137,7 @@ def test_settings_dialog_vlm_provider_change(qapp, settings_manager):
 
 
 def test_settings_dialog_audio_mode_change(qapp, settings_manager):
-    """Test audio mode change shows/hides STT provider.
-
-    Requirements: 7.5, 7.6
-    """
+    """Test audio mode change shows/hides STT provider."""
     with patch("keyring.get_password", return_value=None):
         dialog = SettingsDialog(settings_manager=settings_manager, current_fps=1)
         dialog.show()  # Show dialog to ensure layout is active

@@ -34,7 +34,6 @@ class VideoPreviewWidget(QWidget):
     - Close button to remove source
     - Real-time frame updates using QTimer
 
-    Requirements: 11.6, 11.7, 11.8, 11.9
     """
 
     # Signal emitted when close button is clicked
@@ -316,7 +315,6 @@ class VideoPreviewWidget(QWidget):
         Args:
             frame: VideoFrame object
 
-        Requirements: 28.9
         """
         if frame.is_cropped and frame.active_region:
             region = frame.active_region
@@ -329,10 +327,7 @@ class VideoPreviewWidget(QWidget):
             self._status_label.setText("")
 
     def _on_info_clicked(self) -> None:
-        """Handle info button click.
-
-        Requirements: 11.8
-        """
+        """Handle info button click."""
         logger.debug(f"Info button clicked for source: {self._source_id}")
         # Get metadata and show as tooltip
         try:
@@ -386,10 +381,7 @@ class VideoPreviewWidget(QWidget):
             return f"Error: {e}"
 
     def _on_close_clicked(self) -> None:
-        """Handle close button click.
-
-        Requirements: 11.9
-        """
+        """Handle close button click."""
         logger.debug(f"Close button clicked for source: {self._source_id}")
         self.close_requested.emit(self._source_id)
 

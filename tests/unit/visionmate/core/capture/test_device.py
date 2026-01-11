@@ -22,10 +22,7 @@ class TestDeviceManager:
 
     @patch("mss.mss")
     def test_get_screens(self, mock_mss, device_manager):
-        """Test getting screens with mocked mss.
-
-        Requirements: 1.7
-        """
+        """Test getting screens with mocked mss."""
         # Mock mss to return fake monitors
         mock_sct = MagicMock()
         mock_sct.monitors = [
@@ -53,10 +50,7 @@ class TestDeviceManager:
 
     @patch("cv2.VideoCapture")
     def test_get_uvc_devices(self, mock_video_capture, device_manager):
-        """Test getting UVC devices with mocked OpenCV.
-
-        Requirements: 1.8
-        """
+        """Test getting UVC devices with mocked OpenCV."""
 
         # Mock VideoCapture to return one device at index 0
         def mock_capture_factory(index):
@@ -86,10 +80,7 @@ class TestDeviceManager:
 
     @patch("sounddevice.query_devices")
     def test_get_audio_devices(self, mock_query_devices, device_manager):
-        """Test getting audio devices with mocked sounddevice.
-
-        Requirements: 2.7
-        """
+        """Test getting audio devices with mocked sounddevice."""
         # Mock sounddevice to return fake audio devices
         mock_query_devices.return_value = [
             {
@@ -131,10 +122,7 @@ class TestDeviceManager:
 
     @patch("mss.mss")
     def test_get_device_metadata_screen(self, mock_mss, device_manager):
-        """Test getting metadata for a screen device.
-
-        Requirements: 27.1-27.6
-        """
+        """Test getting metadata for a screen device."""
         # Mock mss
         mock_sct = MagicMock()
         mock_sct.monitors = [
@@ -152,10 +140,7 @@ class TestDeviceManager:
 
     @patch("sounddevice.query_devices")
     def test_get_device_metadata_audio(self, mock_query_devices, device_manager):
-        """Test getting metadata for an audio device.
-
-        Requirements: 27.1-27.6
-        """
+        """Test getting metadata for an audio device."""
         # Mock sounddevice
         mock_query_devices.return_value = [
             {

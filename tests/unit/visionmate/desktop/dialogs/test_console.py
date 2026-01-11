@@ -46,10 +46,7 @@ def dialog(qapp, log_handler):
 
 
 def test_dialog_initialization(dialog):
-    """Test that dialog initializes correctly.
-
-    Requirements: 17.1
-    """
+    """Test that dialog initializes correctly."""
     assert dialog.windowTitle() == "Log Console"
     assert dialog._log_table is not None
     assert dialog._level_combo is not None
@@ -98,10 +95,7 @@ def test_buffered_logs_display(qapp, log_handler):
 
 
 def test_log_message_display(dialog, log_handler):
-    """Test that log messages are displayed in the dialog.
-
-    Requirements: 17.3
-    """
+    """Test that log messages are displayed in the dialog."""
     # Create a test log record
     logger = logging.getLogger("test_logger")
     logger.addHandler(log_handler)
@@ -131,10 +125,7 @@ def test_log_message_display(dialog, log_handler):
 
 
 def test_log_level_filtering(dialog, log_handler):
-    """Test that log level filtering works correctly.
-
-    Requirements: 17.5
-    """
+    """Test that log level filtering works correctly."""
     # Create a test logger
     logger = logging.getLogger("test_filter_logger")
     logger.addHandler(log_handler)
@@ -172,10 +163,7 @@ def test_log_level_filtering(dialog, log_handler):
 
 
 def test_clear_button(dialog, log_handler):
-    """Test that clear button clears the log display.
-
-    Requirements: 17.4
-    """
+    """Test that clear button clears the log display."""
     # Add some log messages
     logger = logging.getLogger("test_clear_logger")
     logger.addHandler(log_handler)
@@ -198,10 +186,7 @@ def test_clear_button(dialog, log_handler):
 
 
 def test_save_to_file(dialog, log_handler, monkeypatch):
-    """Test that save to file functionality works.
-
-    Requirements: 17.4
-    """
+    """Test that save to file functionality works."""
     # Add some log messages
     logger = logging.getLogger("test_save_logger")
     logger.addHandler(log_handler)
@@ -240,10 +225,7 @@ def test_save_to_file(dialog, log_handler, monkeypatch):
 
 
 def test_log_level_colors(dialog):
-    """Test that different log levels have different colors.
-
-    Requirements: 17.1
-    """
+    """Test that different log levels have different colors."""
     # Test color mapping
     assert dialog._get_level_color("DEBUG") == "#808080"
     assert dialog._get_level_color("INFO") == "#4ec9b0"
@@ -254,20 +236,14 @@ def test_log_level_colors(dialog):
 
 
 def test_dialog_is_scrollable(dialog):
-    """Test that the log table is scrollable.
-
-    Requirements: 17.4
-    """
+    """Test that the log table is scrollable."""
     # Check that table has scroll bars
     assert dialog._log_table.verticalScrollBar() is not None
     assert dialog._log_table.horizontalScrollBar() is not None
 
 
 def test_multiple_log_messages(dialog, log_handler):
-    """Test handling multiple log messages in sequence.
-
-    Requirements: 17.3
-    """
+    """Test handling multiple log messages in sequence."""
     # Create a test logger
     logger = logging.getLogger("test_multiple_logger")
     logger.addHandler(log_handler)
@@ -309,10 +285,7 @@ def test_multiple_log_messages(dialog, log_handler):
 
 
 def test_auto_scroll_to_bottom(dialog, log_handler):
-    """Test that new messages auto-scroll to bottom.
-
-    Requirements: 17.4
-    """
+    """Test that new messages auto-scroll to bottom."""
     # Create a test logger
     logger = logging.getLogger("test_scroll_logger")
     logger.addHandler(log_handler)

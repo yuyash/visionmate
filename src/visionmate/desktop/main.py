@@ -88,7 +88,7 @@ class MainWindow(QMainWindow):
 
         # Capture manager
         self._capture_manager = CaptureManager()
-        self._session_manager = SessionManager()
+        self._session_manager = SessionManager(settings=self._settings)
 
         # Control and preview containers
         self._control_container: Optional[ControlContainer] = None
@@ -127,6 +127,10 @@ class MainWindow(QMainWindow):
             if self._control_container and self._control_container._input_mode_widget:
                 self._control_container._input_mode_widget.set_mode(self._settings.input_mode)
                 logger.debug(f"Applied input mode: {self._settings.input_mode.value}")
+
+            # Apply audio mode to session manager
+            self._session_manager.set_audio_mode(self._settings.audio_mode)
+            logger.debug(f"Applied audio mode: {self._settings.audio_mode.value}")
 
             logger.info("Settings applied successfully")
         except Exception as e:
@@ -214,10 +218,7 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def _show_log_console(self) -> None:
-        """Show the Log Console dialog.
-
-        Requirements: 10.10, 17.1
-        """
+        """Show the Log Console dialog."""
         logger.debug("Showing Log Console dialog")
 
         # Create dialog if it doesn't exist
@@ -418,6 +419,12 @@ class MainWindow(QMainWindow):
         self._session_manager.register_callback("response_generated", self._on_response_generated)
         self._session_manager.register_callback("session_reset", self._on_session_reset)
 
+        # Setup metrics widget callback
+        if self._action_container:
+            metrics_widget = self._action_container.get_metrics_widget()
+            if metrics_widget:
+                metrics_widget.set_metrics_callback(self._get_metrics)
+
         logger.debug("Signals connected")
 
     def _update_status_bar(self, message: str, timeout: int = 0) -> None:
@@ -614,7 +621,6 @@ class MainWindow(QMainWindow):
         Args:
             mode: InputMode enum value
 
-        Requirements: 10.6
         """
         from visionmate.core.models import InputMode
 
@@ -640,7 +646,6 @@ class MainWindow(QMainWindow):
         Args:
             device_id: Audio device identifier
 
-        Requirements: 12.1
         """
         logger.info(f"Audio device selected: {device_id}")
 
@@ -762,6 +767,14 @@ class MainWindow(QMainWindow):
             if session_control:
                 session_control.set_session_state(state)
 
+            # Start/stop metrics auto-refresh based on session state
+            metrics_widget = self._action_container.get_metrics_widget()
+            if metrics_widget:
+                if state == SessionState.ACTIVE:
+                    metrics_widget.start_auto_refresh(interval_ms=1000)
+                else:
+                    metrics_widget.stop_auto_refresh()
+
         # Update control container (enable/disable device selection)
         if self._control_container:
             if state == SessionState.ACTIVE:
@@ -869,6 +882,22 @@ class MainWindow(QMainWindow):
         has_devices = has_video or has_audio
 
         session_control.set_has_devices(has_devices)
+
+    def _get_metrics(self):
+        """Get current metrics from session manager.
+
+        Returns:
+            ManagerMetrics object
+
+        """
+        from visionmate.core.models import ManagerMetrics
+
+        try:
+            return self._session_manager.get_metrics()
+        except Exception as e:
+            logger.error(f"Error getting metrics: {e}", exc_info=True)
+            # Return empty metrics on error
+            return ManagerMetrics()
 
     def closeEvent(self, event) -> None:
         """Handle window close event.

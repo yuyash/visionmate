@@ -20,8 +20,10 @@ from visionmate.core.models import (
     AudioMode,
     AudioSourceConfig,
     AudioSourceType,
+    FrameSelectionStrategy,
     InputMode,
     LocaleSettings,
+    ManagerConfig,
     PreviewLayout,
     PreviewLayoutSettings,
     Resolution,
@@ -186,6 +188,23 @@ class SettingsManager:
                 "audio_mode": settings.stt_settings.audio_mode.value,
                 "language": settings.stt_settings.language,
             },
+            "audio_mode": settings.audio_mode.value,
+            "manager_config": {
+                "max_segment_buffer_size": settings.manager_config.max_segment_buffer_size,
+                "max_buffer_memory_mb": settings.manager_config.max_buffer_memory_mb,
+                "energy_threshold": settings.manager_config.energy_threshold,
+                "silence_duration_sec": settings.manager_config.silence_duration_sec,
+                "frame_selection_strategy": settings.manager_config.frame_selection_strategy.value,
+                "max_time_drift_ms": settings.manager_config.max_time_drift_ms,
+                "change_threshold": settings.manager_config.change_threshold,
+                "max_frames_per_segment": settings.manager_config.max_frames_per_segment,
+                "max_retry_attempts": settings.manager_config.max_retry_attempts,
+                "retry_backoff_base": settings.manager_config.retry_backoff_base,
+                "connection_timeout_sec": settings.manager_config.connection_timeout_sec,
+                "segment_send_timeout_ms": settings.manager_config.segment_send_timeout_ms,
+                "enable_backpressure": settings.manager_config.enable_backpressure,
+                "max_send_buffer_size": settings.manager_config.max_send_buffer_size,
+            },
             "locale_settings": {
                 "locale": settings.locale_settings.locale_string,
                 "timezone": settings.locale_settings.timezone_name,
@@ -261,6 +280,30 @@ class SettingsManager:
             language=stt_data.get("language", "en"),
         )
 
+        # Parse audio mode (for multimedia manager)
+        audio_mode = AudioMode(data.get("audio_mode", "server-side"))
+
+        # Parse manager config
+        manager_data = data.get("manager_config", {})
+        manager_config = ManagerConfig(
+            max_segment_buffer_size=manager_data.get("max_segment_buffer_size", 300),
+            max_buffer_memory_mb=manager_data.get("max_buffer_memory_mb", 500),
+            energy_threshold=manager_data.get("energy_threshold", 0.01),
+            silence_duration_sec=manager_data.get("silence_duration_sec", 1.5),
+            frame_selection_strategy=FrameSelectionStrategy(
+                manager_data.get("frame_selection_strategy", "most_different")
+            ),
+            max_time_drift_ms=manager_data.get("max_time_drift_ms", 100.0),
+            change_threshold=manager_data.get("change_threshold", 0.15),
+            max_frames_per_segment=manager_data.get("max_frames_per_segment", 3),
+            max_retry_attempts=manager_data.get("max_retry_attempts", 3),
+            retry_backoff_base=manager_data.get("retry_backoff_base", 1.0),
+            connection_timeout_sec=manager_data.get("connection_timeout_sec", 10.0),
+            segment_send_timeout_ms=manager_data.get("segment_send_timeout_ms", 200),
+            enable_backpressure=manager_data.get("enable_backpressure", True),
+            max_send_buffer_size=manager_data.get("max_send_buffer_size", 100),
+        )
+
         # Parse locale settings
         locale_data = data.get("locale_settings", {})
         locale_settings = LocaleSettings.from_strings(
@@ -293,6 +336,8 @@ class SettingsManager:
             default_fps=data.get("default_fps", 1),
             vlm_settings=vlm_settings,
             stt_settings=stt_settings,
+            audio_mode=audio_mode,
+            manager_config=manager_config,
             locale_settings=locale_settings,
             preview_layout_settings=preview_layout_settings,
             window_geometry=window_geometry,

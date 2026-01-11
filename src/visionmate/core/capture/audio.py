@@ -32,8 +32,6 @@ class AudioCaptureInterface(ABC):
     This interface defines the contract for all audio capture implementations,
     supporting various audio sources including audio devices, UVC devices,
     and RTSP streams.
-
-    Requirements: 2.1, 2.2, 2.3
     """
 
     @abstractmethod
@@ -102,8 +100,6 @@ class DeviceAudioCapture(AudioCaptureInterface):
     This implementation captures audio from system audio input devices
     using the sounddevice library. It uses a ring buffer to store audio
     chunks for continuous streaming.
-
-    Requirements: 2.1, 2.6
     """
 
     def __init__(self, chunk_duration: float = 0.5):
@@ -295,8 +291,6 @@ class UVCAudioCapture(AudioCaptureInterface):
 
     This implementation captures audio from UVC devices that support
     audio input using OpenCV's VideoCapture API.
-
-    Requirements: 2.2
     """
 
     def __init__(self, chunk_duration: float = 0.5):
@@ -475,8 +469,6 @@ class RTSPAudioCapture(AudioCaptureInterface):
 
     This implementation captures audio from RTSP streams using OpenCV's
     VideoCapture API.
-
-    Requirements: 2.3
     """
 
     def __init__(self, chunk_duration: float = 0.5):
@@ -644,8 +636,6 @@ class AudioMixer:
     This class manages multiple audio capture sources and mixes their
     audio output into a single stream. It supports per-source volume
     control and automatic sample rate conversion.
-
-    Requirements: 2.5, 2.9
     """
 
     def __init__(self, target_sample_rate: int = 16000, target_channels: int = 1):
@@ -719,8 +709,6 @@ class AudioMixer:
 
         Returns:
             Mixed AudioChunk object, or None if no sources are active
-
-        Requirements: 2.5, 2.9
         """
         with self._source_lock:
             if not self._sources:
@@ -887,8 +875,6 @@ class AudioMixer:
 
         Returns:
             Converted audio data
-
-        Requirements: 2.9
         """
         # Convert sample rate if needed
         if src_sample_rate != dst_sample_rate:

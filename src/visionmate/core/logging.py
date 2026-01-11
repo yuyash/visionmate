@@ -69,8 +69,6 @@ class LogConsoleHandler(logging.Handler):
     Additionally, this handler maintains a buffer of recent log messages
     so that when the log console dialog is opened, it can display
     historical logs from application startup.
-
-    Requirements: 17.2, 17.3, 17.5
     """
 
     def __init__(self, level: int = logging.NOTSET, max_buffer_size: int = 1000):
@@ -111,8 +109,6 @@ class LogConsoleHandler(logging.Handler):
 
         Args:
             record: The log record to process
-
-        Requirements: 17.2, 17.3
         """
         try:
             # Format the log record
@@ -152,8 +148,6 @@ def setup_logging(
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_file: Optional path to log file (default: visionmate.log in current directory)
         console_handler: Optional LogConsoleHandler for UI integration
-
-    Requirements: 25.1, 25.2, 25.3, 25.4, 25.5, 25.6
     """
     # Convert log level string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)

@@ -31,7 +31,6 @@ class ControlContainer(QWidget):
     - Device enumeration and selection
     - Device refresh functionality
 
-    Requirements: 10.4, 10.5, 10.6
     """
 
     # Signals
@@ -337,7 +336,6 @@ class ControlContainer(QWidget):
         Args:
             device_id: Audio device identifier
 
-        Requirements: 12.1
         """
         logger.info(f"Audio add requested: {device_id}")
 
@@ -345,10 +343,7 @@ class ControlContainer(QWidget):
         self.audio_device_selected.emit(device_id)
 
     def _on_audio_refresh_requested(self) -> None:
-        """Handle audio device refresh request.
-
-        Requirements: 12.1
-        """
+        """Handle audio device refresh request."""
         logger.info("Refreshing audio devices")
 
         try:
@@ -386,7 +381,6 @@ class ControlContainer(QWidget):
         Args:
             mode: InputMode enum value
 
-        Requirements: 10.6
         """
         from visionmate.core.models import InputMode
 
