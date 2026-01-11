@@ -28,8 +28,6 @@ class CaptureManager:
 
     It encapsulates both DeviceManager and VideoSourceManager to provide
     a single point of access for all capture-related operations.
-
-    Requirements: 1.6, 1.7, 1.8, 27.1-27.6
     """
 
     def __init__(self):
@@ -64,8 +62,6 @@ class CaptureManager:
 
         Returns:
             List of DeviceMetadata objects for each available screen
-
-        Requirements: 1.7
         """
         return self._device_manager.get_screens()
 
@@ -74,8 +70,6 @@ class CaptureManager:
 
         Returns:
             List of DeviceMetadata objects for each available UVC device
-
-        Requirements: 1.8
         """
         return self._device_manager.get_uvc_devices()
 
@@ -84,8 +78,6 @@ class CaptureManager:
 
         Returns:
             List of DeviceMetadata objects for each available audio device
-
-        Requirements: 2.8
         """
         return self._device_manager.get_audio_devices()
 
@@ -97,8 +89,6 @@ class CaptureManager:
 
         Returns:
             DeviceMetadata object with device information
-
-        Requirements: 27.1-27.6
         """
         return self._device_manager.get_device_metadata(device_id)
 
@@ -115,8 +105,6 @@ class CaptureManager:
 
         Raises:
             ValueError: If source_id already exists
-
-        Requirements: 1.6
         """
         self._video_source_manager.add_source(source_id, capture)
 
@@ -128,8 +116,6 @@ class CaptureManager:
 
         Raises:
             KeyError: If source_id does not exist
-
-        Requirements: 1.6
         """
         self._video_source_manager.remove_source(source_id)
 
@@ -141,8 +127,6 @@ class CaptureManager:
 
         Returns:
             VideoCaptureInterface instance, or None if not found
-
-        Requirements: 1.6
         """
         return self._video_source_manager.get_source(source_id)
 
@@ -151,8 +135,6 @@ class CaptureManager:
 
         Returns:
             Dictionary mapping source IDs to VideoCaptureInterface instances
-
-        Requirements: 1.6
         """
         return self._video_source_manager.get_all_sources()
 
@@ -161,8 +143,6 @@ class CaptureManager:
 
         Returns:
             List of source IDs
-
-        Requirements: 1.6
         """
         return self._video_source_manager.get_source_ids()
 
@@ -171,8 +151,6 @@ class CaptureManager:
 
         Returns:
             Number of active sources
-
-        Requirements: 1.6
         """
         return self._video_source_manager.get_source_count()
 
@@ -181,23 +159,15 @@ class CaptureManager:
 
         Returns:
             Dictionary mapping source IDs to VideoFrame objects
-
-        Requirements: 1.6
         """
         return self._video_source_manager.collect_frames()
 
     def stop_all_video_sources(self) -> None:
-        """Stop capture for all video sources.
-
-        Requirements: 1.6
-        """
+        """Stop capture for all video sources."""
         self._video_source_manager.stop_all()
 
     def clear_all_video_sources(self) -> None:
-        """Remove all video sources and stop their captures.
-
-        Requirements: 1.6
-        """
+        """Remove all video sources and stop their captures."""
         self._video_source_manager.clear_all()
 
     def is_video_source_capturing(self, source_id: str) -> bool:
@@ -208,8 +178,6 @@ class CaptureManager:
 
         Returns:
             True if source is capturing, False otherwise
-
-        Requirements: 1.6
         """
         return self._video_source_manager.is_capturing(source_id)
 
@@ -221,8 +189,6 @@ class CaptureManager:
 
         Returns:
             True if source exists, False otherwise
-
-        Requirements: 1.6
         """
         return source_id in self._video_source_manager
 
@@ -270,8 +236,6 @@ class CaptureManager:
 
         Raises:
             ValueError: If source_id already exists
-
-        Requirements: 12.1
         """
         if source_id in self._audio_sources:
             raise ValueError(f"Audio source already exists: {source_id}")
@@ -287,8 +251,6 @@ class CaptureManager:
 
         Raises:
             KeyError: If source_id does not exist
-
-        Requirements: 12.1
         """
         if source_id not in self._audio_sources:
             raise KeyError(f"Audio source not found: {source_id}")
@@ -307,8 +269,6 @@ class CaptureManager:
 
         Returns:
             AudioCaptureInterface instance, or None if not found
-
-        Requirements: 12.1
         """
         return self._audio_sources.get(source_id)
 
@@ -317,8 +277,6 @@ class CaptureManager:
 
         Returns:
             List of source IDs
-
-        Requirements: 12.1
         """
         return list(self._audio_sources.keys())
 
@@ -327,16 +285,11 @@ class CaptureManager:
 
         Returns:
             Number of active sources
-
-        Requirements: 12.1
         """
         return len(self._audio_sources)
 
     def stop_all_audio_sources(self) -> None:
-        """Stop capture for all audio sources.
-
-        Requirements: 12.1
-        """
+        """Stop capture for all audio sources."""
         for source_id, capture in self._audio_sources.items():
             try:
                 if hasattr(capture, "stop_capture") and callable(capture.stop_capture):
@@ -346,10 +299,7 @@ class CaptureManager:
                 logger.error(f"Error stopping audio source {source_id}: {e}", exc_info=True)
 
     def clear_all_audio_sources(self) -> None:
-        """Remove all audio sources and stop their captures.
-
-        Requirements: 12.1
-        """
+        """Remove all audio sources and stop their captures."""
         self.stop_all_audio_sources()
         self._audio_sources.clear()
         logger.info("Cleared all audio sources")

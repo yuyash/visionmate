@@ -24,7 +24,6 @@ class TestDeviceManagerIntegration:
 
         This test scans actual screens connected to the host system.
 
-        Requirements: 1.7
         """
         screens = device_manager.get_screens()
 
@@ -52,7 +51,6 @@ class TestDeviceManagerIntegration:
         This test scans actual UVC devices connected to the host system.
         Note: This test may find 0 devices if no UVC devices are connected.
 
-        Requirements: 1.8
         """
         devices = device_manager.get_uvc_devices()
 
@@ -76,7 +74,6 @@ class TestDeviceManagerIntegration:
 
         This test scans actual audio devices on the host system.
 
-        Requirements: 2.7
         """
         devices = device_manager.get_audio_devices()
 
@@ -99,10 +96,7 @@ class TestDeviceManagerIntegration:
             assert device.sample_rate > 0
 
     def test_get_device_metadata_screen_real(self, device_manager):
-        """Test getting metadata for a real screen device.
-
-        Requirements: 27.1-27.6
-        """
+        """Test getting metadata for a real screen device."""
         screens = device_manager.get_screens()
         assert len(screens) > 0, "No screens found on host system"
 
@@ -120,10 +114,7 @@ class TestDeviceManagerIntegration:
         assert metadata.resolution is not None
 
     def test_get_device_metadata_audio_real(self, device_manager):
-        """Test getting metadata for a real audio device.
-
-        Requirements: 27.1-27.6
-        """
+        """Test getting metadata for a real audio device."""
         devices = device_manager.get_audio_devices()
         assert len(devices) > 0, "No audio devices found on host system"
 

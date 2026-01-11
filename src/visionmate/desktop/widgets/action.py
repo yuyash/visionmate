@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from visionmate.desktop.widgets.metrics import MetricsWidget
 from visionmate.desktop.widgets.request import RequestWidget
 from visionmate.desktop.widgets.response import ResponseWidget
 from visionmate.desktop.widgets.session import SessionControlWidget
@@ -53,6 +54,7 @@ class ActionContainer(QWidget):
         self._session_control_widget: Optional[SessionControlWidget] = None
         self._request_widget: Optional[RequestWidget] = None
         self._response_widget: Optional[ResponseWidget] = None
+        self._metrics_widget: Optional[MetricsWidget] = None
 
         self._setup_ui()
         self._connect_signals()
@@ -84,6 +86,10 @@ class ActionContainer(QWidget):
         # Add Session Control widget
         self._session_control_widget = SessionControlWidget()
         actions_layout.addWidget(self._session_control_widget)
+
+        # Add Metrics widget
+        self._metrics_widget = MetricsWidget()
+        actions_layout.addWidget(self._metrics_widget)
 
         # Add Request widget
         self._request_widget = RequestWidget()
@@ -149,3 +155,11 @@ class ActionContainer(QWidget):
             ResponseWidget instance
         """
         return self._response_widget
+
+    def get_metrics_widget(self) -> Optional[MetricsWidget]:
+        """Get the metrics widget.
+
+        Returns:
+            MetricsWidget instance
+        """
+        return self._metrics_widget

@@ -37,7 +37,6 @@ class VideoInputWidget(QWidget):
     - Device list with refresh button
     - Device metadata display
 
-    Requirements: 11.1, 11.2, 11.7
     """
 
     # Signal emitted when a device is selected
@@ -592,7 +591,6 @@ class AudioInputWidget(QWidget):
     - Audio device list with refresh button
     - Device selection
 
-    Requirements: 12.1
     """
 
     # Signal emitted when a device is selected

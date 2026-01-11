@@ -30,7 +30,6 @@ class InputModeWidget(QWidget):
     - Video Only
     - Audio Only
 
-    Requirements: 10.6, 3.1
     """
 
     # Signal emitted when input mode changes

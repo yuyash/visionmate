@@ -62,17 +62,12 @@ class VideoCaptureInterface(ABC):
             fps: Frame rate (1-60)
             resolution: Optional resolution override as (width, height)
             enable_window_detection: Enable active window detection and cropping
-
-        Requirements: 1.1, 1.2, 1.3, 28.1-28.3
         """
         pass
 
     @abstractmethod
     def stop_capture(self) -> None:
-        """Stop capturing video.
-
-        Requirements: 1.1, 1.2, 1.3
-        """
+        """Stop capturing video."""
         pass
 
     @abstractmethod
@@ -81,8 +76,6 @@ class VideoCaptureInterface(ABC):
 
         Returns:
             VideoFrame object with the latest frame, or None if no frame available.
-
-        Requirements: 1.1, 1.2, 1.3, 28.5
         """
         pass
 
@@ -92,8 +85,6 @@ class VideoCaptureInterface(ABC):
 
         Returns:
             True if capture is active, False otherwise.
-
-        Requirements: 1.1, 1.2, 1.3
         """
         pass
 
@@ -103,8 +94,6 @@ class VideoCaptureInterface(ABC):
 
         Returns:
             DeviceMetadata object with device information.
-
-        Requirements: 27.1-27.6
         """
         pass
 
@@ -114,8 +103,6 @@ class VideoCaptureInterface(ABC):
 
         Args:
             enabled: True to enable window detection, False to disable
-
-        Requirements: 28.6, 28.8
         """
         pass
 
@@ -125,8 +112,6 @@ class VideoCaptureInterface(ABC):
 
         Returns:
             True if window detection is enabled, False otherwise.
-
-        Requirements: 28.6, 28.8
         """
         pass
 
@@ -178,8 +163,6 @@ class WindowDetector:
 
         Returns:
             WindowRegion object for the active window, or None if detection fails.
-
-        Requirements: 28.1, 28.4, 28.7
         """
         try:
             if self._platform == "Darwin":
@@ -213,8 +196,6 @@ class WindowDetector:
 
         Returns:
             List of detected window regions, sorted by area (largest first)
-
-        Requirements: 28.2, 28.3, 28.4, 28.5
         """
         try:
             import cv2
@@ -971,7 +952,6 @@ class ScreenCapture(VideoCaptureInterface):
     - Automatic window detection enabled for screen capture
     - Platform-specific active window detection and cropping
 
-    Requirements: 1.1, 1.4, 4.1, 4.2, 28.1, 28.7
     """
 
     def __init__(self, device_manager=None):
@@ -1014,7 +994,6 @@ class ScreenCapture(VideoCaptureInterface):
             resolution: Optional resolution override (not used for screen capture)
             enable_window_detection: If True, crop to active window; if False, capture full screen
 
-        Requirements: 1.1, 1.4, 4.1, 4.2, 28.1, 28.7
         """
         if self._capturing:
             logger.warning("Capture already in progress")
@@ -1045,10 +1024,7 @@ class ScreenCapture(VideoCaptureInterface):
         )
 
     def stop_capture(self) -> None:
-        """Stop capturing video.
-
-        Requirements: 1.1
-        """
+        """Stop capturing video."""
         if not self._capturing:
             logger.warning("Capture not in progress")
             return
@@ -1067,7 +1043,6 @@ class ScreenCapture(VideoCaptureInterface):
         Returns:
             VideoFrame object with the latest frame, or None if no frame available.
 
-        Requirements: 1.1, 28.5
         """
         with self._lock:
             if self._frame_buffer:
@@ -1080,7 +1055,6 @@ class ScreenCapture(VideoCaptureInterface):
         Returns:
             True if capture is active, False otherwise.
 
-        Requirements: 1.1
         """
         return self._capturing
 
@@ -1090,7 +1064,6 @@ class ScreenCapture(VideoCaptureInterface):
         Returns:
             DeviceMetadata object with device information.
 
-        Requirements: 27.1-27.6
         """
         if self._device_manager and self._device_id:
             return self._device_manager.get_device_metadata(self._device_id)
@@ -1109,7 +1082,6 @@ class ScreenCapture(VideoCaptureInterface):
             enabled: True to enable window detection (crop to active window),
                     False to disable (capture full screen)
 
-        Requirements: 28.6, 28.7
         """
         self._window_detection_enabled = enabled
         if enabled:
@@ -1125,7 +1097,6 @@ class ScreenCapture(VideoCaptureInterface):
         Returns:
             True if window detection is enabled, False otherwise.
 
-        Requirements: 28.6, 28.7
         """
         return self._window_detection_enabled
 
@@ -1378,7 +1349,6 @@ class UVCCapture(VideoCaptureInterface):
     - User-controlled window detection (optional)
     - Computer vision-based window detection and cropping
 
-    Requirements: 1.2, 1.5, 28.2, 28.8
     """
 
     def __init__(self, device_manager=None):
@@ -1417,7 +1387,6 @@ class UVCCapture(VideoCaptureInterface):
             resolution: Optional resolution override as (width, height)
             enable_window_detection: Enable computer vision window detection and cropping
 
-        Requirements: 1.2, 1.5, 28.2, 28.8
         """
         if self._capturing:
             logger.warning("Capture already in progress")
@@ -1474,10 +1443,7 @@ class UVCCapture(VideoCaptureInterface):
             raise
 
     def stop_capture(self) -> None:
-        """Stop capturing video.
-
-        Requirements: 1.2
-        """
+        """Stop capturing video."""
         if not self._capturing:
             logger.warning("Capture not in progress")
             return
@@ -1501,7 +1467,6 @@ class UVCCapture(VideoCaptureInterface):
         Returns:
             VideoFrame object with the latest frame, or None if no frame available.
 
-        Requirements: 1.2, 28.5
         """
         with self._lock:
             if self._frame_buffer:
@@ -1514,7 +1479,6 @@ class UVCCapture(VideoCaptureInterface):
         Returns:
             True if capture is active, False otherwise.
 
-        Requirements: 1.2
         """
         return self._capturing
 
@@ -1524,7 +1488,6 @@ class UVCCapture(VideoCaptureInterface):
         Returns:
             DeviceMetadata object with device information.
 
-        Requirements: 27.1-27.6
         """
         if self._device_manager and self._device_id:
             return self._device_manager.get_device_metadata(self._device_id)
@@ -1543,7 +1506,6 @@ class UVCCapture(VideoCaptureInterface):
             enabled: True to enable window detection (crop to detected windows),
                     False to disable (capture full frame)
 
-        Requirements: 28.6, 28.8
         """
         self._window_detection_enabled = enabled
         mode = "enabled" if enabled else "disabled"
@@ -1555,7 +1517,6 @@ class UVCCapture(VideoCaptureInterface):
         Returns:
             True if window detection is enabled, False otherwise.
 
-        Requirements: 28.6, 28.8
         """
         return self._window_detection_enabled
 
@@ -1680,7 +1641,6 @@ class RTSPCapture(VideoCaptureInterface):
     - Computer vision-based window detection and cropping
     - Connection error handling and retry logic
 
-    Requirements: 1.3, 1.9, 28.3, 28.8
     """
 
     def __init__(self, device_manager=None):
@@ -1720,7 +1680,6 @@ class RTSPCapture(VideoCaptureInterface):
             resolution: Optional resolution override as (width, height)
             enable_window_detection: Enable computer vision window detection and cropping
 
-        Requirements: 1.3, 1.9, 28.3, 28.8
         """
         if self._capturing:
             logger.warning("Capture already in progress")
@@ -1786,10 +1745,7 @@ class RTSPCapture(VideoCaptureInterface):
             raise
 
     def stop_capture(self) -> None:
-        """Stop capturing video.
-
-        Requirements: 1.3
-        """
+        """Stop capturing video."""
         if not self._capturing:
             logger.warning("Capture not in progress")
             return
@@ -1813,7 +1769,6 @@ class RTSPCapture(VideoCaptureInterface):
         Returns:
             VideoFrame object with the latest frame, or None if no frame available.
 
-        Requirements: 1.3, 28.5
         """
         with self._lock:
             if self._frame_buffer:
@@ -1826,7 +1781,6 @@ class RTSPCapture(VideoCaptureInterface):
         Returns:
             True if capture is active, False otherwise.
 
-        Requirements: 1.3
         """
         return self._capturing
 
@@ -1836,7 +1790,6 @@ class RTSPCapture(VideoCaptureInterface):
         Returns:
             DeviceMetadata object with device information.
 
-        Requirements: 27.1-27.6
         """
         if self._device_manager and self._device_id:
             return self._device_manager.get_device_metadata(self._device_id)
@@ -1855,7 +1808,6 @@ class RTSPCapture(VideoCaptureInterface):
             enabled: True to enable window detection (crop to detected windows),
                     False to disable (capture full frame)
 
-        Requirements: 28.6, 28.8
         """
         self._window_detection_enabled = enabled
         mode = "enabled" if enabled else "disabled"
@@ -1867,7 +1819,6 @@ class RTSPCapture(VideoCaptureInterface):
         Returns:
             True if window detection is enabled, False otherwise.
 
-        Requirements: 28.6, 28.8
         """
         return self._window_detection_enabled
 

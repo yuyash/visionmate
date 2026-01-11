@@ -26,7 +26,6 @@ class SessionControlWidget(QWidget):
     Provides Start, Stop, and Reset buttons for controlling the session state.
     Button states are managed based on session state and device selection.
 
-    Requirements: 10.7, 9.1, 9.2, 9.3, 9.5, 9.9, 9.10
     """
 
     # Signals
@@ -94,26 +93,17 @@ class SessionControlWidget(QWidget):
         logger.debug("SessionControlWidget UI setup complete")
 
     def _on_start_clicked(self) -> None:
-        """Handle Start button click.
-
-        Requirements: 9.1, 9.6
-        """
+        """Handle Start button click."""
         logger.info("Start button clicked")
         self.start_requested.emit()
 
     def _on_stop_clicked(self) -> None:
-        """Handle Stop button click.
-
-        Requirements: 9.2, 9.7
-        """
+        """Handle Stop button click."""
         logger.info("Stop button clicked")
         self.stop_requested.emit()
 
     def _on_reset_clicked(self) -> None:
-        """Handle Reset button click.
-
-        Requirements: 9.3, 9.8
-        """
+        """Handle Reset button click."""
         logger.info("Reset button clicked")
         self.reset_requested.emit()
 
@@ -123,7 +113,6 @@ class SessionControlWidget(QWidget):
         Args:
             state: Current session state
 
-        Requirements: 9.5, 9.9, 9.10
         """
         self._session_state = state
         self._update_button_states()
@@ -135,7 +124,6 @@ class SessionControlWidget(QWidget):
         Args:
             has_devices: True if at least one device is selected
 
-        Requirements: 9.5
         """
         self._has_devices = has_devices
         self._update_button_states()
@@ -149,7 +137,6 @@ class SessionControlWidget(QWidget):
         - Stop: Enabled when ACTIVE
         - Reset: Enabled when ACTIVE
 
-        Requirements: 9.5, 9.9, 9.10
         """
         if not self._start_button or not self._stop_button or not self._reset_button:
             return
