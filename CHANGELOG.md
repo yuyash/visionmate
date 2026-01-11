@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/yuyash/visionmate/compare/v1.4.0...v1.5.0) (2026-01-11)
+
+
+### Features
+
+* add vlm integration ([#38](https://github.com/yuyash/visionmate/issues/38)) ([92897fd](https://github.com/yuyash/visionmate/commit/92897fd9c1f5e339d381eafeb107fa6521c95327))
+
 ## [1.4.0](https://github.com/yuyash/visionmate/compare/v1.3.1...v1.4.0) (2026-01-10)
 
 
