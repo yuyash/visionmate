@@ -1,0 +1,12 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "package-name": "visionmate",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        "src/visionmate/__init__.py"
+      ]
+    }
+  }
+}
