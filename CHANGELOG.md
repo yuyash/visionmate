@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/yuyash/visionmate/compare/visionmate-v2.0.0...visionmate-v2.1.0) (2026-01-17)
+
+
+### Features
+
+* **capture:** add OS‑specific handling for missing PortAudio library ([#43](https://github.com/yuyash/visionmate/issues/43)) ([34dd406](https://github.com/yuyash/visionmate/commit/34dd40623de79aa237db315dd5ad20f24dd01893))
+
 ## [2.0.0](https://github.com/yuyash/visionmate/compare/visionmate-v1.4.0...visionmate-v2.0.0) (2026-01-11)
 
 
