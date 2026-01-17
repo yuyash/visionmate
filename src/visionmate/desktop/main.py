@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from visionmate.__main__ import APP_NAME, APP_VERSION
 from visionmate.core import AppSettings
 from visionmate.core.capture.manager import CaptureManager
+from visionmate.core.capture.video import WindowCaptureMode
 from visionmate.core.logging import LogConsoleHandler
 from visionmate.core.models import WindowGeometry
 from visionmate.core.session import SessionManager
@@ -455,18 +456,22 @@ class MainWindow(QMainWindow):
 
         try:
             # Get window capture mode from control container
-            window_capture_mode = (
-                self._control_container.get_window_capture_mode()
-                if self._control_container
-                else "full_screen"
-            )
+            window_capture_mode = WindowCaptureMode.FULL_SCREEN
+            if self._control_container:
+                mode_value = self._control_container.get_window_capture_mode()
+                try:
+                    window_capture_mode = WindowCaptureMode(mode_value)
+                except ValueError:
+                    logger.warning(
+                        "Unknown window capture mode '%s', defaulting to full_screen", mode_value
+                    )
 
             # Get FPS setting
             fps = self._control_container.get_fps() if self._control_container else 1
 
             # For Selected Windows mode, get selected window titles
             selected_window_titles: list[str] = []
-            if window_capture_mode == "selected_windows" and self._control_container:
+            if window_capture_mode == WindowCaptureMode.SELECTED_WINDOWS and self._control_container:
                 if self._control_container._video_input_widget is not None:
                     selected_window_titles = (
                         self._control_container._video_input_widget.get_selected_windows()
@@ -475,12 +480,12 @@ class MainWindow(QMainWindow):
             # Start capture and preview via preview container
             if self._preview_container is not None:
                 # For Selected Windows mode, create window captures
-                if window_capture_mode == "selected_windows" and selected_window_titles:
+                if window_capture_mode == WindowCaptureMode.SELECTED_WINDOWS and selected_window_titles:
                     self._preview_container.create_window_captures(
                         device_id, selected_window_titles
                     )
                 else:
-                    self._preview_container.start_capture_and_preview(
+                    self._preview_container.start_video_capture_and_preview(
                         source_type=source_type,
                         device_id=device_id,
                         fps=fps,
