@@ -168,7 +168,7 @@ class MetricsWidget(QWidget):
         frame.setStyleSheet(
             """
             QFrame {
-                background-color: white;
+                background-color: transparent;
                 border: 1px solid #ddd;
                 border-radius: 4px;
             }

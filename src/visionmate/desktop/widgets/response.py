@@ -75,9 +75,9 @@ class ResponseWidget(QWidget):
             """
             QLabel {
                 padding: 8px;
-                background-color: #f0f0f0;
+                background-color: transparent;
                 border-radius: 4px;
-                color: #666;
+                color: palette(text);
             }
             """
         )
@@ -95,9 +95,9 @@ class ResponseWidget(QWidget):
             """
             QLabel {
                 padding: 8px;
-                background-color: #e8f4f8;
+                background-color: transparent;
                 border-radius: 4px;
-                color: #333;
+                color: palette(text);
             }
             """
         )
@@ -117,7 +117,7 @@ class ResponseWidget(QWidget):
             QScrollArea {
                 border: 1px solid #ccc;
                 border-radius: 4px;
-                background-color: white;
+                background-color: transparent;
             }
             """
         )
@@ -148,9 +148,9 @@ class ResponseWidget(QWidget):
             """
             QLabel {
                 padding: 8px;
-                background-color: #fff3cd;
+                background-color: transparent;
                 border-radius: 4px;
-                color: #333;
+                color: palette(text);
                 font-weight: bold;
             }
             """
@@ -190,9 +190,9 @@ class ResponseWidget(QWidget):
             """
             QLabel {
                 padding: 8px;
-                background-color: #d4edda;
+                background-color: transparent;
                 border-radius: 4px;
-                color: #333;
+                color: palette(text);
             }
             """
         )
@@ -248,7 +248,7 @@ class ResponseWidget(QWidget):
         entry.setStyleSheet(
             """
             QFrame {
-                background-color: #f8f9fa;
+                background-color: transparent;
                 border: 1px solid #dee2e6;
                 border-radius: 4px;
                 padding: 8px;
@@ -298,9 +298,9 @@ class ResponseWidget(QWidget):
             """
             QLabel {
                 padding: 8px;
-                background-color: #f0f0f0;
+                background-color: transparent;
                 border-radius: 4px;
-                color: #666;
+                color: palette(text);
             }
             """
         )
@@ -314,9 +314,9 @@ class ResponseWidget(QWidget):
             """
             QLabel {
                 padding: 8px;
-                background-color: #e8f4f8;
+                background-color: transparent;
                 border-radius: 4px;
-                color: #333;
+                color: palette(text);
             }
             """
         )

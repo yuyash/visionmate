@@ -66,7 +66,7 @@ class RequestWidget(QWidget):
                 border: 1px solid #ccc;
                 border-radius: 4px;
                 padding: 4px;
-                background-color: white;
+                background-color: transparent;
             }
             """
         )
@@ -74,12 +74,28 @@ class RequestWidget(QWidget):
 
         # Submit button
         self._submit_button = QPushButton("Submit Instructions")
+        self._submit_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: transparent;
+                color: palette(text);
+            }
+            """
+        )
         self._submit_button.setToolTip("Submit text instructions")
         self._submit_button.clicked.connect(self._on_submit_clicked)
         group_layout.addWidget(self._submit_button)
 
         # Clear button
         self._clear_button = QPushButton("Clear")
+        self._clear_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: transparent;
+                color: palette(text);
+            }
+            """
+        )
         self._clear_button.setToolTip("Clear text input")
         self._clear_button.clicked.connect(self._on_clear_clicked)
         group_layout.addWidget(self._clear_button)
