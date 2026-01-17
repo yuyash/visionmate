@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import Qt, Signal
 
+from visionmate.core.models import VideoSourceType
+
 if TYPE_CHECKING:
     from visionmate.desktop.widgets import AudioPreviewWidget, VideoPreviewWidget
 from PySide6.QtWidgets import (
@@ -413,12 +415,12 @@ class PreviewContainer(QWidget):
             f"video={len(self._video_previews)}, audio={len(self._audio_previews)})"
         )
 
-    def start_capture_and_preview(
+    def start_video_capture_and_preview(
         self,
-        source_type: str,
+        source_type: VideoSourceType,
         device_id: str,
         fps: int = 1,
-        window_capture_mode: str = "full_screen",
+        window_capture_mode: WindowCaptureMode = WindowCaptureMode.FULL_SCREEN,
     ) -> None:
         """Start capture for a device and create preview.
 
@@ -426,22 +428,32 @@ class PreviewContainer(QWidget):
             source_type: Type of source ("screen", "uvc", "rtsp")
             device_id: Device identifier
             fps: Frame rate (default: 1)
-            window_capture_mode: Window capture mode (default: "full_screen")
+            window_capture_mode: Window capture mode (default: WindowCaptureMode.FULL_SCREEN)
 
         """
+        if isinstance(window_capture_mode, str):
+            try:
+                window_capture_mode = WindowCaptureMode(window_capture_mode)
+            except ValueError:
+                logger.warning(
+                    "Unknown window capture mode '%s', defaulting to full_screen",
+                    window_capture_mode,
+                )
+                window_capture_mode = WindowCaptureMode.FULL_SCREEN
+
         logger.debug(
-            f"start_capture_and_preview called: source_type={source_type}, "
-            f"device_id={device_id}, mode={window_capture_mode}"
+            f"start_video_capture_and_preview called: source_type={source_type}, "
+            f"device_id={device_id}, mode={window_capture_mode.value}"
         )
 
         # For screen capture, create a unique device ID based on capture mode
         # This allows multiple previews of the same screen with different modes
-        if source_type == "screen":
-            if window_capture_mode == "full_screen":
+        if source_type == VideoSourceType.SCREEN:
+            if window_capture_mode == WindowCaptureMode.FULL_SCREEN:
                 unique_device_id = f"{device_id}_fullscreen"
-            elif window_capture_mode == "active_window":
+            elif window_capture_mode == WindowCaptureMode.ACTIVE_WINDOW:
                 unique_device_id = f"{device_id}_activewindow"
-            elif window_capture_mode == "selected_windows":
+            elif window_capture_mode == WindowCaptureMode.SELECTED_WINDOWS:
                 # For selected windows mode, don't create preview yet
                 logger.info("Selected windows mode - waiting for window selection")
                 return
@@ -456,19 +468,19 @@ class PreviewContainer(QWidget):
             return
 
         # Track selected screen devices (use base device_id)
-        if source_type == "screen":
+        if source_type == VideoSourceType.SCREEN:
             self._selected_screen_devices.add(device_id)
 
         try:
             # Create capture instance based on source type
-            if source_type == "screen":
+            if source_type == VideoSourceType.SCREEN:
                 capture = ScreenCapture(device_manager=self._capture_manager.get_device_manager())
 
                 # Determine capture mode
-                if window_capture_mode == "full_screen":
+                if window_capture_mode == WindowCaptureMode.FULL_SCREEN:
                     capture_mode = WindowCaptureMode.FULL_SCREEN
                     enable_window_detection = False
-                elif window_capture_mode == "active_window":
+                elif window_capture_mode == WindowCaptureMode.ACTIVE_WINDOW:
                     capture_mode = WindowCaptureMode.ACTIVE_WINDOW
                     enable_window_detection = True
                 else:
@@ -483,10 +495,10 @@ class PreviewContainer(QWidget):
                 )
                 capture.set_window_capture_mode(capture_mode)
 
-            elif source_type == "uvc":
+            elif source_type == VideoSourceType.UVC:
                 logger.warning("UVC capture not yet implemented")
                 return
-            elif source_type == "rtsp":
+            elif source_type == VideoSourceType.RTSP:
                 logger.warning("RTSP capture not yet implemented")
                 return
             else:
@@ -504,7 +516,7 @@ class PreviewContainer(QWidget):
             # Emit status message for device selection
             try:
                 metadata = self._capture_manager.get_device_metadata(device_id)
-                mode_text = window_capture_mode.replace("_", " ").title()
+                mode_text = window_capture_mode.value.replace("_", " ").title()
                 self.status_message.emit(f"Added: {metadata.name} ({mode_text})", 3000)
             except Exception:
                 pass
@@ -595,33 +607,6 @@ class PreviewContainer(QWidget):
             self.status_message.emit("No devices selected", 2000)
         elif count > 1:
             self.status_message.emit(f"{count} devices selected", 3000)
-
-    def handle_window_capture_mode_change(
-        self,
-        mode: str,
-        selected_titles: Optional[list[str]] = None,
-    ) -> str:
-        """Handle window capture mode change.
-
-        DEPRECATED: This method is no longer used with the new "Add to Preview" workflow.
-        Capture mode changes now only affect NEW previews, not existing ones.
-        Kept for backward compatibility.
-
-        Args:
-            mode: Capture mode
-            selected_titles: List of selected window titles (unused, for compatibility)
-
-        Returns:
-            Action to take: "show_selector", "wait", or "recreate"
-        """
-        # This method is deprecated and should not be called in the new workflow
-        logger.warning("handle_window_capture_mode_change called but is deprecated")
-
-        # Handle show_selector mode for backward compatibility
-        if mode == "show_selector":
-            return "show_selector"
-
-        return "wait"
 
     def _close_all_window_previews(self) -> None:
         """Close all window-specific previews."""
