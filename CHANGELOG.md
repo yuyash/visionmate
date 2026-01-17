@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/yuyash/visionmate/compare/visionmate-v2.1.0...visionmate-v2.1.1) (2026-01-17)
+
+
+### Bug Fixes
+
+* **ui:** add dark‑mode support for widgets and improve PortAudio error handling ([#46](https://github.com/yuyash/visionmate/issues/46)) ([6094653](https://github.com/yuyash/visionmate/commit/609465332b80671edb1ff61f312075cb92fdf66f))
+
 ## [2.1.0](https://github.com/yuyash/visionmate/compare/visionmate-v2.0.0...visionmate-v2.1.0) (2026-01-17)
 
 
