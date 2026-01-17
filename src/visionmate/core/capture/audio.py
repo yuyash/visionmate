@@ -7,6 +7,7 @@ audio devices, UVC devices, and RTSP streams.
 from __future__ import annotations
 
 import logging
+import platform
 from abc import ABC, abstractmethod
 from collections import deque
 from threading import Lock, Thread
@@ -14,7 +15,28 @@ from typing import Optional
 
 import cv2
 import numpy as np
-import sounddevice as sd
+
+try:
+    import sounddevice as sd
+except OSError as err:
+    if "PortAudio library not found" in str(err):
+        os_name = platform.system()
+        if os_name == "Linux":
+            raise OSError(
+                "PortAudio library not found. Install via: sudo apt-get install libportaudio2 portaudio19-dev"
+            ) from err
+        elif os_name == "Darwin":
+            raise OSError(
+                "PortAudio library not found. Install via Homebrew: brew install portaudio"
+            ) from err
+        elif os_name == "Windows":
+            raise OSError(
+                "PortAudio library not found. Please install PortAudio from http://www.portaudio.com/download.html"
+            ) from err
+        else:
+            raise OSError("PortAudio library not found on unsupported OS.") from err
+    else:
+        raise
 
 from visionmate.core.models import AudioChunk, AudioSourceType, DeviceMetadata, DeviceType
 
