@@ -23,7 +23,7 @@ from visionmate.core import AppSettings
 from visionmate.core.capture.manager import CaptureManager
 from visionmate.core.capture.video import WindowCaptureMode
 from visionmate.core.logging import LogConsoleHandler
-from visionmate.core.models import WindowGeometry
+from visionmate.core.models import VideoSourceType, WindowGeometry
 from visionmate.core.session import SessionManager
 from visionmate.core.settings import SettingsManager
 from visionmate.desktop.dialogs import AboutDialog, LogConsoleDialog
@@ -455,6 +455,12 @@ class MainWindow(QMainWindow):
         logger.info(f"Device selected: {device_id} (type: {source_type})")
 
         try:
+            source_type_enum = VideoSourceType(source_type)
+        except ValueError:
+            logger.warning("Unknown source type '%s'", source_type)
+            return
+
+        try:
             # Get window capture mode from control container
             window_capture_mode = WindowCaptureMode.FULL_SCREEN
             if self._control_container:
@@ -486,7 +492,7 @@ class MainWindow(QMainWindow):
                     )
                 else:
                     self._preview_container.start_video_capture_and_preview(
-                        source_type=source_type,
+                        source_type=source_type_enum,
                         device_id=device_id,
                         fps=fps,
                         window_capture_mode=window_capture_mode,
